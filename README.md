@@ -1,6 +1,6 @@
 # Maxen — building assets management prototype
 
-A clickable, coded version of the Maxen V4 Figma prototype. It is a single self-contained `index.html` (plain HTML, CSS and JavaScript, no build step or dependencies beyond the Public Sans font from Google Fonts).
+A clickable, coded version of the Maxen prototype. It is a single self-contained `index.html` (plain HTML, CSS and JavaScript, no build step or dependencies beyond the Public Sans font from Google Fonts).
 
 ## Run it
 
