@@ -522,7 +522,7 @@ const peopleAt = (company) => EXTERNAL.filter(p=>p.company===company);
 const ASSIGNEES = (() => { const a=shuffle(rng('assignees'),EXTERNAL.filter(p=>/echnician|Foreman/.test(p.title))).slice(0,19); a.splice(5,0,JON); return a; })();
 /* Portfolio buildings. Maison de Radio-Canada is the one from Figma; the others are fictional, on real Montréal-area streets. */
 const BLDGS = [
-  {name:'Maison de Radio-Canada',short:'Radio-Canada',addr:'Papineau / René-Levesque, Montréal, Québec',area:'418,822',year:'Completed in 2020',desc:'Headquarters of CBC/Radio-Canada in Montréal: studios, broadcast control rooms and offices.'},
+  {name:'Maison de Radio-Canada',short:'Radio-Canada',addr:'Papineau / René-Levesque, Montréal, Québec',area:'418,822',year:'Completed in 2020',photo:'assets/maison-radio-canada.jpg',desc:'Headquarters of CBC/Radio-Canada in Montréal: studios, broadcast control rooms and offices.'},
   {name:'Complexe Saint-Urbain',short:'Saint-Urbain',addr:'2000 rue Saint-Urbain, Montréal, Québec',area:'212,400',year:'Built in 1987, renovated in 2016',desc:'Mixed-use office complex with ground-floor retail and a public food court.'},
   {name:'Tour Champlain',short:'Champlain',addr:'1250 boulevard Robert-Bourassa, Montréal, Québec',area:'486,000',year:'Built in 1992',desc:'32-storey office tower downtown, connected to the underground city.'},
   {name:'Pavillon Papineau',short:'Papineau',addr:'2285 avenue Papineau, Montréal, Québec',area:'96,300',year:'Built in 1965, renovated in 2018',desc:'Former printing plant converted to creative offices and production studios.'},
@@ -865,7 +865,7 @@ S.tech = () => header('mywo') + `<main class="page">${pageHead('Work orders assi
 const BT = [['building','At a glance'],['building-analytics','Analytics'],['building-wo','Work orders'],['building-assets','Assets']];
 const bTabs = (on,sub='') => `<div style="margin-bottom:24px;border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden"><div class="tabs" style="border-radius:0">${BT.map(([h,l])=>`<a class="tab ${on===h?'on':''}" href="#${h}">${l}</a>`).join('')}</div>${sub}</div>`;
 const bHead = () => pageHead(curB().name);
-const bldgPhoto = () => `<div class="building-photo" role="img" aria-label="Aerial view of ${curB().name}">
+const bldgPhoto = () => curB().photo ? `<div class="building-photo" style="overflow:hidden"><img src="${curB().photo}" alt="${curB().name} at dusk" style="width:100%;height:100%;object-fit:cover;object-position:60% 50%;display:block"></div>` : `<div class="building-photo" role="img" aria-label="Aerial view of ${curB().name}">
   <svg viewBox="0 0 320 180" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect y="95" width="320" height="85" fill="#6B8F71"/><path d="M0 70l60-6 70 4 60-8 70 6 60-4v40H0z" fill="#9DB6CC"/>
   <path d="M30 60h260" stroke="#5E7891" stroke-width="2"/><path d="M60 60l20-12 20 12M200 60l20-12 20 12" stroke="#5E7891" fill="none"/>
   <polygon points="70,150 100,95 150,92 150,150" fill="#3E6B8C"/><polygon points="150,92 175,100 175,152 150,150" fill="#2C5270"/>
