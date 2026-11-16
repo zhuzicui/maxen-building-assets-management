@@ -260,6 +260,9 @@ tr.link:hover td{background:var(--paper-2)}
 .asset .info{padding:8px 12px;display:grid;align-content:center;line-height:1.4;min-width:0}
 .asset .info b{font-size:13px;font-weight:600}
 .asset .info span{font-size:12px;color:var(--fg-2)}
+.asset .info b,.asset .info>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asset.has-par .info{padding-right:40px}
+.qi span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .asset .par{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--fg-2)}
 .asset .tip{position:absolute;right:0;bottom:calc(100% + 6px);background:var(--paper);box-shadow:var(--shadow-pop);border-radius:8px;padding:8px 12px;font-size:12px;white-space:nowrap;display:none;z-index:3;line-height:1.5}
 .asset .par:hover+.tip{display:block}
@@ -456,7 +459,7 @@ const wordmark = () => `<svg width="206" height="36" viewBox="0 0 206 36" role="
 const flag = () => `<svg width="26" height="18" viewBox="0 0 60 40" aria-hidden="true"><clipPath id="fc"><rect width="60" height="40" rx="4"/></clipPath><g clip-path="url(#fc)"><rect width="60" height="40" fill="#012169"/><path d="M0 0l60 40M60 0L0 40" stroke="#fff" stroke-width="8"/><path d="M0 0l60 40M60 0L0 40" stroke="#C8102E" stroke-width="3"/><path d="M30 0v40M0 20h60" stroke="#fff" stroke-width="12"/><path d="M30 0v40M0 20h60" stroke="#C8102E" stroke-width="7"/></g></svg>`;
 
 const AV = {HA:['#22A06B','#B5F5C8'],CC:['#B76E00','#FFE7B3'],JS:['#454F5B','#DFE3E8']};
-const avatar = (ini,s=40) => { const [a,b]=AV[ini]||['#078DEE','#CAF6FF']; return `<span class="avatar" style="width:${s}px;height:${s}px;background:${b};color:${a};font-size:${Math.round(s*.36)}px">${ini}</span>`; };
+const avatar = (ini,s=40) => { const PAL=[['#078DEE','#CAF6FF'],['#22A06B','#B5F5C8'],['#B76E00','#FFE7B3'],['#7635DC','#EBD6FD'],['#B71D18','#FFE9D5'],['#006C9C','#CAFDF5']]; const [a,b]=AV[ini]||PAL[[...ini].reduce((h,c)=>h+c.charCodeAt(0),0)%PAL.length]; return `<span class="avatar" style="width:${s}px;height:${s}px;background:${b};color:${a};font-size:${Math.round(s*.36)}px">${ini}</span>`; };
 
 /* ---------- data ---------- */
 const STATUS = {Planned:'c-grey',Ready:'c-grey','In progress':'c-blue','On hold':'c-amber',Overdue:'c-red',Completed:'c-green'};
@@ -469,21 +472,245 @@ const legend4 = () => `<div class="legend">${['In progress','On hold','Overdue',
 const RECENT = ['Overdue','Completed','In progress','Completed','In progress','On hold','In progress','Completed','Completed','In progress'];
 const DOT = {Overdue:'var(--red)',Completed:'var(--green)','In progress':'var(--brand)','On hold':'var(--amber)'};
 
+/* ---------- mock data ----------
+   Every generated name, company, work order and asset comes from here. Generation is seeded,
+   so the same screen shows the same data on every reload. Change MOCK_SEED to reshuffle everything. */
+const MOCK_SEED = 'maxen-2022';
+const hashStr = (s) => { let h=2166136261; for(const c of String(s)){ h^=c.charCodeAt(0); h=Math.imul(h,16777619); } return h>>>0; };
+const rng = (key) => { let a=hashStr(MOCK_SEED+'|'+key); return () => { a=(a+0x6D2B79F5)>>>0; let t=a; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; };
+const pick = (r,arr) => arr[Math.floor(r()*arr.length)];
+const shuffle = (r,arr) => { const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(r()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const initials = (name) => name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+const slug = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z]/g,'');
+
+const FIRST_NAMES = ['Marie-Ève','Jean-François','Sophie','Mathieu','Camille','Olivier','Isabelle','Étienne','Nadia','Gabriel','Chloé','Alexandre','Émilie','Samuel','Valérie','Karim','Priya','Daniel','Laura','Kevin','Amélie','Thomas','Fatima','Simon','Julie','Marc-André','Sarah','Vincent','Mélanie','Lucas','Andréanne','Patrick','Yasmine','Louis','Geneviève','Ryan','Nathalie','Hugo','Catherine','Maxime'];
+const LAST_NAMES = ['Tremblay','Gagnon','Roy','Côté','Bouchard','Gauthier','Morin','Lavoie','Fortin','Gagné','Ouellet','Pelletier','Bélanger','Lévesque','Bergeron','Leblanc','Paquette','Girard','Nguyen','Haddad','Patel','Chen','Murphy','Campbell','Fraser','Martel','Dubois','Lefebvre','Benoît','Caron','Desjardins','Thibault','Okafor','Rossi','Sauvé'];
+/* Suppliers are fictional. Shepard comes from the Figma file. */
+const SUPPLIERS = [
+  {name:'Shepard',domain:'shepard.com',disc:'Electricity'},
+  {name:'Mécanique Laurentide',domain:'mlaurentide.ca',disc:'HVAC'},
+  {name:'Plomberie Saint-Laurent',domain:'plomberiestl.ca',disc:'Plumbing'},
+  {name:'Réfrigération Boréal',domain:'refboreal.ca',disc:'Refrigeration'},
+  {name:'Ascenseurs Montcalm',domain:'ascmontcalm.ca',disc:'Elevators'},
+  {name:'Vigil Sécurité Incendie',domain:'vigilsecurite.ca',disc:'Fire safety'},
+  {name:'Northline Controls',domain:'northline.ca',disc:'Building automation'},
+  {name:'Toitures Mont-Royal',domain:'toituresmr.ca',disc:'Roofing'},
+  {name:'Entretien Lumina',domain:'lumina.ca',disc:'Janitorial'}
+];
+const EXT_TITLES = ['Technician','Technician','Technician','Senior technician','Foreman','Service coordinator','Account manager'];
+const INT_TITLES = ['ESG Director','Property manager','Portfolio manager','Maintenance planner','Facilities coordinator','Energy analyst'];
+const phoneFor = (k) => { const r=rng('phone|'+k); return `(${pick(r,['514','438'])}) 555-01${String(Math.floor(r()*100)).padStart(2,'0')}`; };
+const mkPerson = (name,company,title,domain) => { const [f,...l]=name.split(' '); return {name,company,title,initials:initials(name),phone:phoneFor(name),email:`${slug(f)[0]}${slug(l.join(''))}@${domain}`}; };
+
+/* Named people from the Figma file stay as they were. */
+const HUDSON = {...mkPerson('Hudson Alvarez','Maxen','Building manager','maxen.ca'),email:'hudson.alvarez@maxen.ca',phone:'(514) 555-0142'};
+const CRISTOPHER = {...mkPerson('Cristopher Cardenas','Shepard','Technician','shepard.com'),phone:'(514) 897-6312',disc:'Electricity'};
+const JON = {...mkPerson('Jon Snow','Shepard','Technician','shepard.com'),disc:'Electricity'};
+
+const PEOPLE = (() => {
+  const r=rng('people'), used=new Set(['Hudson Alvarez','Cristopher Cardenas','Jon Snow']), out=[];
+  while(out.length<70){ const n=`${pick(r,FIRST_NAMES)} ${pick(r,LAST_NAMES)}`; if(!used.has(n)){ used.add(n); out.push(n); } }
+  return out;
+})();
+/* 12 Maxen staff, then supplier staff spread across suppliers. */
+const INT_DISC = {'ESG Director':'Sustainability','Property manager':'Property management','Portfolio manager':'Asset management','Maintenance planner':'Maintenance','Facilities coordinator':'Facilities','Energy analyst':'Energy'};
+const INTERNAL = PEOPLE.slice(0,12).map((n,i)=>{ const t=INT_TITLES[i%INT_TITLES.length]; return {...mkPerson(n,'Maxen',t,'maxen.ca'),disc:INT_DISC[t]}; });
+const EXTERNAL = PEOPLE.slice(12).map((n,i)=>{ const s=SUPPLIERS[i%SUPPLIERS.length]; return {...mkPerson(n,s.name,pick(rng('title|'+n),EXT_TITLES),s.domain),disc:s.disc}; });
+EXTERNAL.splice(4,0,CRISTOPHER);
+const peopleAt = (company) => EXTERNAL.filter(p=>p.company===company);
+/* Assignee leaderboard: Jon Snow stays in slot 6 because the Figma flow links to his page from there. */
+const ASSIGNEES = (() => { const a=shuffle(rng('assignees'),EXTERNAL.filter(p=>/echnician|Foreman/.test(p.title))).slice(0,19); a.splice(5,0,JON); return a; })();
+/* Portfolio buildings. Maison de Radio-Canada is the one from Figma; the others are fictional, on real Montréal-area streets. */
+const BLDGS = [
+  {name:'Maison de Radio-Canada',short:'Radio-Canada',addr:'Papineau / René-Levesque, Montréal, Québec',area:'418,822',year:'Completed in 2020',photo:'assets/maison-radio-canada.jpg',desc:'Headquarters of CBC/Radio-Canada in Montréal: studios, broadcast control rooms and offices.'},
+  {name:'Complexe Saint-Urbain',short:'Saint-Urbain',addr:'2000 rue Saint-Urbain, Montréal, Québec',area:'212,400',year:'Built in 1987, renovated in 2016',desc:'Mixed-use office complex with ground-floor retail and a public food court.'},
+  {name:'Tour Champlain',short:'Champlain',addr:'1250 boulevard Robert-Bourassa, Montréal, Québec',area:'486,000',year:'Built in 1992',desc:'32-storey office tower downtown, connected to the underground city.'},
+  {name:'Pavillon Papineau',short:'Papineau',addr:'2285 avenue Papineau, Montréal, Québec',area:'96,300',year:'Built in 1965, renovated in 2018',desc:'Former printing plant converted to creative offices and production studios.'},
+  {name:'Édifice Sainte-Catherine',short:'Sainte-Catherine',addr:'755 rue Sainte-Catherine Ouest, Montréal, Québec',area:'158,900',year:'Built in 1931',desc:'Heritage department store building, now offices above street-level retail.'},
+  {name:'Entrepôt Lachine',short:'Lachine',addr:'3100 rue Notre-Dame, Lachine, Québec',area:'341,000',year:'Built in 2008',desc:'Distribution warehouse with cold storage and a 40-door loading dock.'},
+  {name:'Campus Laval',short:'Laval',addr:'1800 boulevard Le Corbusier, Laval, Québec',area:'274,500',year:'Completed in 2015',desc:'Three-building office campus with an underground parking garage.'}
+];
+const BUILDINGS = BLDGS.map(b=>b.name);
+const curB = () => BLDGS[state.building] || BLDGS[0];
+const bKey = () => state.building ? '|'+curB().short : '';   // Radio-Canada keeps the keys it had, so its data doesn't change
+const bStats = () => { if(!state.building) return [16,56,156,8,12,820]; const r=rng('stats|'+curB().name); return [3+Math.floor(r()*20),10+Math.floor(r()*60),20+Math.floor(r()*160),Math.floor(r()*12),Math.floor(r()*15),200+Math.floor(r()*900)]; };
+const bScore = () => state.building ? 52+hashStr('score'+curB().name)%42 : 74;
+const bManagers = () => { if(!state.building) return [HUDSON,INTERNAL[0],INTERNAL[1],INTERNAL[2]]; const r=rng('mgr|'+curB().name); return shuffle(r,INTERNAL).slice(0,4); };
+
+const WO_NAMES = [
+  'Inspection annuelle des extincteurs','Replace AHU-2 filters','Nettoyage des conduits de ventilation','Backflow preventer annual test',
+  'Rooftop unit spring start-up','Elevator monthly inspection','Essai de la génératrice d’urgence','Grease interceptor pumping',
+  'Kitchen exhaust hood cleaning','Boiler combustion analysis','Cooling tower water treatment','Emergency lighting test',
+  'Remplacement des courroies EF-3','Fire alarm panel verification','Calibrate BMS temperature sensors','Déneigement de la toiture',
+  'Check walk-in cooler door gaskets','Inspection thermographique du panneau électrique','Replace lobby LED fixtures','Vérification des clapets coupe-feu',
+  'Descale commercial dishwasher','Water heater anode inspection','Test des détecteurs de fumée','Repair leaking faucet, washroom 3.2',
+  'Clean solar panels','Adjust VAV box airflow, Studio 42','Inspection des gicleurs','Replace ice machine water filter',
+  'Lubrification des pompes de circulation','Roof drain inspection','Repaint loading dock lines','Vérification de l’onduleur UPS-1',
+  'Update conference room firmware','Pest control quarterly visit','Remplacement des filtres de la hotte','Chiller seasonal shutdown',
+  'Inspect parking garage CO sensors','Nettoyage des vitres extérieures','Replace worn door closer, entrance B','Sweep snow'
+];
+/* Same key, same name. Offsets keep names unique within a list. */
+const woName = (key,i=0) => WO_NAMES[(hashStr(MOCK_SEED+key)+i)%WO_NAMES.length];
+const woPerson = (key) => ASSIGNEES[hashStr(MOCK_SEED+'who'+key)%ASSIGNEES.length];
+
+/* Work order content by title: [maintenance category, type, recurrence, estimated duration, priority, assets, description, checklist, supplier].
+   French titles get French content. A task ending in [unit] asks for a reading in the checklist modal. */
+const WO_SPEC = {
+  'Toit des Studios':['Roofing','Solar','Annual','1 day','High',['Panneaux solaires','Onduleur solaire INV-R01'],'Inspection annuelle de l’installation solaire sur le toit des studios, avant l’hiver.',['Inspecter les fixations et les rails','Vérifier l’absence de fissures sur les modules','Nettoyer la surface des panneaux','Contrôler le serrage des connecteurs','Relever la température des panneaux [°C]'],'Toitures Mont-Royal'],
+  'Inspection annuelle des extincteurs':['Fire safety','Extinguishers','Annual','1 day','Medium',['Extincteur EX-101','Extincteur EX-102'],'Inspection réglementaire de tous les extincteurs portatifs de l’aile, selon la norme NFPA 10.',['Vérifier la pression au manomètre','Inspecter la goupille et le scellé','Contrôler la date d’essai hydrostatique','Apposer l’étiquette d’inspection 2022'],'Vigil Sécurité Incendie'],
+  'Replace AHU-2 filters':['HVAC','Filtration','Every 3 months','4 hours','Medium',['Air handling unit AHU-102'],'Quarterly filter change on AHU-2, which serves the studios on floors 2 to 4.',['Lock out AHU-2 and tag the disconnect','Record pressure drop across the filter bank [Pa]','Remove and bag the old pre-filters and bag filters','Install new MERV 13 filters and check the seals','Restart the unit and record the new pressure drop [Pa]'],'Mécanique Laurentide'],
+  'Nettoyage des conduits de ventilation':['HVAC','Ductwork','Annual','2 days','Low',['Unité de traitement d’air AHU-101','Ventilateur d’extraction EF-103'],'Nettoyage complet du réseau de conduits de l’AHU-1, à faire de nuit pour ne pas déranger les enregistrements.',['Protéger les plafonds et le mobilier','Ouvrir les trappes d’accès','Brosser et aspirer les conduits principaux','Photographier avant et après','Refermer et sceller les trappes'],'Mécanique Laurentide'],
+  'Backflow preventer annual test':['Plumbing','Backflow prevention','Annual','2 hours','High',['Backflow preventer BF-101'],'Annual test required by the City of Montréal. The signed form must be sent within 30 days.',['Notify occupants of the water shut-off','Test differential pressure on check valves 1 and 2 [kPa]','Record the relief valve opening point [kPa]','Fill in the municipal test form','Restore the water supply and check for leaks'],'Plomberie Saint-Laurent'],
+  'Rooftop unit spring start-up':['HVAC','Rooftop units','Annual','1 day','Medium',['Rooftop unit RTU-R01','Rooftop unit RTU-R02'],'Spring start-up of both rooftop units before cooling season.',['Remove the winter covers from the condensers','Check belts and pulley alignment','Measure refrigerant suction pressure [kPa]','Record supply air temperature [°C]','Verify economizer operation'],'Mécanique Laurentide'],
+  'Elevator monthly inspection':['Vertical transport','Elevators','Monthly','3 hours','High',['Elevator EL-1','Elevator EL-2'],'Monthly maintenance visit on the two passenger elevators in the main lobby.',['Test the emergency phone and alarm bell','Check the door reopening device','Inspect cab lighting and fan','Verify levelling at each floor','Sign the elevator logbook'],'Ascenseurs Montcalm'],
+  'Essai de la génératrice d’urgence':['Electrical','Emergency power','Monthly','2 hours','High',['Génératrice GEN-R01','Commutateur de transfert ATS-01'],'Essai mensuel sous charge de la génératrice qui alimente les régies de diffusion.',['Vérifier le niveau de carburant','Démarrer la génératrice sous charge','Relever la tension de sortie [V]','Laisser tourner 30 minutes','Consigner les résultats au registre'],'Shepard'],
+  'Grease interceptor pumping':['Plumbing','Grease interceptor','Every 3 months','3 hours','Medium',['Grease interceptor GI-101'],'Quarterly pump-out of the kitchen grease interceptor, scheduled after the cafeteria closes.',['Ask the kitchen to stop dishwashing','Measure the grease layer before pumping [cm]','Pump out the interceptor','Scrape the baffles and the inlet','Keep the pump-out manifest for the city'],'Plomberie Saint-Laurent'],
+  'Kitchen exhaust hood cleaning':['Kitchen equipment','Exhaust hoods','Bi-annual','1 day','High',['Exhaust hood EH-101','Exhaust fan EF-R01'],'Bi-annual hood and duct degreasing required by the fire code. Overnight job, kitchen closed.',['Cover the cooking equipment','Remove and degrease the filters','Scrape the plenum and the duct','Clean the rooftop exhaust fan','Apply the cleaning certificate sticker'],'Entretien Lumina'],
+  'Boiler combustion analysis':['HVAC','Boilers','Annual','4 hours','Medium',['Boiler B-1','Boiler B-2'],'Annual combustion tune-up on both heating boilers before the heating season peaks.',['Measure flue gas O2 [%]','Record the stack temperature [°C]','Adjust the burner air-fuel ratio','Test the low-water cut-off','Record efficiency in the report'],'Mécanique Laurentide'],
+  'Cooling tower water treatment':['HVAC','Cooling tower','Monthly','2 hours','High',['Cooling tower CT-R01'],'Monthly Legionella control required by the RBQ for cooling towers.',['Collect a water sample for Legionella analysis','Check the biocide pump and drum level','Measure conductivity [µS/cm]','Inspect the drift eliminators','Upload results to the RBQ register'],'Mécanique Laurentide'],
+  'Emergency lighting test':['Electrical','Emergency lighting','Monthly','3 hours','Medium',['Emergency light EL-101','Emergency light EL-102'],'Monthly functional test of emergency lights and exit signs on every floor.',['Press the test button on each unit','Run the 30-minute battery test','Replace failed lamps','Check that exit signs are lit','Record results per floor'],'Shepard'],
+  'Remplacement des courroies EF-3':['HVAC','Exhaust fans','Annual','2 hours','Low',['Ventilateur d’extraction EF-103'],'Les courroies de l’EF-3 sont usées et font du bruit dans le studio voisin.',['Cadenasser le ventilateur','Retirer les courroies usées','Installer les nouvelles courroies','Ajuster la tension et l’alignement','Remettre en marche et mesurer l’ampérage [A]'],'Mécanique Laurentide'],
+  'Fire alarm panel verification':['Fire safety','Fire alarm','Annual','1 day','High',['Fire alarm panel FACP-1'],'Annual verification of the fire alarm system under CAN/ULC-S536.',['Notify the monitoring station','Test each zone from the panel','Measure battery voltage [V]','Test pull stations on two floors','Restore the panel to normal and notify the station'],'Vigil Sécurité Incendie'],
+  'Calibrate BMS temperature sensors':['Building automation','Sensors','Annual','1 day','Low',['BMS controller BMS-101'],'Studio occupants report rooms feeling warmer than the BMS shows. Recalibrate the zone sensors.',['Export current readings from the BMS','Compare each sensor with a reference thermometer','Apply offsets above 0.5 °C','Record the temperature in Studio 42 [°C]','Save the calibration log'],'Northline Controls'],
+  'Déneigement de la toiture':['Roofing','Snow removal','Every 2 weeks','4 hours','High',['Drain de toit RD-R01','Unité de toiture RTU-R01'],'Déneigement du toit après chaque accumulation de plus de 30 cm.',['Installer le périmètre de sécurité au sol','Mesurer l’épaisseur de neige [cm]','Dégager les drains et les unités de toiture','Déneiger les accès et les issues','Prendre des photos après'],'Toitures Mont-Royal'],
+  'Check walk-in cooler door gaskets':['Refrigeration','Walk-in cooler','Monthly','1 hour','Medium',['Walk-in cooler WIC-101'],'Kitchen staff noticed frost around the walk-in door. Check the gaskets and the door heater.',['Inspect the gasket for tears','Do a paper test around the door','Check the door heater strip','Record the box temperature [°C]','Clean the gasket with mild soap'],'Réfrigération Boréal'],
+  'Inspection thermographique du panneau électrique':['Electrical','Panelboards','Annual','4 hours','Medium',['Panneau électrique PE-101','Panneau électrique PE-102'],'Thermographie annuelle exigée par l’assureur, sur les panneaux du rez-de-chaussée.',['Retirer les couvercles sous supervision','Prendre les images thermiques sous charge','Relever la température du point le plus chaud [°C]','Identifier les connexions à resserrer','Remettre le rapport thermographique'],'Shepard'],
+  'Replace lobby LED fixtures':['Electrical','Lighting','One time','1 day','Low',['LED light fixture LT-101','LED light fixture LT-102'],'Replace the remaining fluorescent fixtures in the lobby with dimmable LED fixtures.',['Set up scaffolding in the lobby','Remove the old fixtures','Install the new LED fixtures','Test dimming with the lighting control','Recycle the old fixtures'],'Shepard'],
+  'Vérification des clapets coupe-feu':['Fire safety','Fire dampers','Annual','2 days','Medium',['Clapet coupe-feu FD-201','Clapet coupe-feu FD-202'],'Vérification des clapets coupe-feu selon NFPA 80, aile des studios.',['Localiser les clapets sur les plans','Ouvrir les trappes d’accès','Déclencher chaque clapet et vérifier la fermeture','Réarmer le fusible','Étiqueter et photographier chaque clapet'],'Vigil Sécurité Incendie'],
+  'Descale commercial dishwasher':['Kitchen equipment','Dishwasher','Monthly','2 hours','Low',['Commercial dishwasher DW-101'],'Monthly descaling. Montréal water leaves heavy scale on the rinse arms.',['Drain and cool the machine','Run the descaling cycle','Clean the wash and rinse arms','Check the final rinse temperature [°C]','Refill the chemicals'],'Réfrigération Boréal'],
+  'Water heater anode inspection':['Plumbing','Water heaters','Annual','3 hours','Low',['Water heater WH-101'],'Annual anode check on the main domestic hot water heater.',['Shut off gas and cold water supply','Drain a few litres from the tank','Remove and inspect the anode rod','Replace the anode if under 50% left','Refill and check the outlet temperature [°C]'],'Plomberie Saint-Laurent'],
+  'Test des détecteurs de fumée':['Fire safety','Smoke detectors','Annual','1 day','High',['Détecteur de fumée SD-101','Détecteur de fumée SD-102'],'Essai annuel de tous les détecteurs de fumée raccordés au panneau d’alarme.',['Aviser la centrale de surveillance','Tester chaque détecteur avec un aérosol','Vérifier le signal au panneau','Remplacer les détecteurs défectueux','Remettre le rapport d’essai'],'Vigil Sécurité Incendie'],
+  'Repair leaking faucet, washroom 3.2':['Plumbing','Fixtures','One time','1 hour','Medium',['Faucet W3.2-02'],'Tenant request: the second faucet in washroom 3.2 drips constantly.',['Shut off the supply under the sink','Replace the cartridge','Check the aerator and clean it','Test for leaks'],'Plomberie Saint-Laurent'],
+  'Clean solar panels':['Electrical','Solar','Bi-annual','4 hours','Low',['Panneaux solaires','Onduleur solaire INV-R01'],'Spring and fall cleaning of the rooftop panels. Output dropped by 6% since the last cleaning.',['Record inverter output before cleaning [kW]','Rinse panels with deionized water','Clean with a soft brush, no detergent','Record inverter output after cleaning [kW]'],'Toitures Mont-Royal'],
+  'Adjust VAV box airflow, Studio 42':['HVAC','VAV boxes','One time','3 hours','Medium',['VAV box VAV-402'],'Studio 42 is too cold during broadcasts. Rebalance the VAV box.',['Measure the current airflow [L/s]','Check the damper actuator','Adjust the minimum and maximum setpoints','Measure the new airflow [L/s]','Confirm comfort with the studio manager'],'Northline Controls'],
+  'Inspection des gicleurs':['Fire safety','Sprinklers','Annual','1 day','High',['Vanne de gicleurs SP-101','Vanne de gicleurs SP-102'],'Inspection annuelle du réseau de gicleurs selon NFPA 25.',['Vérifier la position des vannes','Relever la pression statique [kPa]','Faire l’essai de débit principal','Inspecter les têtes de gicleurs visibles','Remplir le rapport d’inspection'],'Vigil Sécurité Incendie'],
+  'Replace ice machine water filter':['Refrigeration','Ice machine','Bi-annual','1 hour','Low',['Ice machine IM-101'],'Six-month filter change on the cafeteria ice machine.',['Turn off the machine and the water supply','Replace the filter cartridge','Flush the new filter','Sanitize the ice bin','Discard the first batch of ice'],'Réfrigération Boréal'],
+  'Lubrification des pompes de circulation':['HVAC','Pumps','Bi-annual','3 hours','Low',['Pompe de circulation P-1','Pompe de circulation P-2'],'Graissage semestriel des pompes de chauffage dans la salle mécanique.',['Cadenasser chaque pompe','Graisser les roulements','Vérifier l’alignement de l’accouplement','Mesurer les vibrations [mm/s]','Remettre en service'],'Mécanique Laurentide'],
+  'Roof drain inspection':['Roofing','Drains','Bi-annual','2 hours','Medium',['Roof drain RD-R01','Roof drain RD-R02'],'Spring and fall drain inspection to prevent ponding and leaks into the studios.',['Remove debris from the strainers','Check the clamping rings','Run water to confirm flow','Look for ponding around the drain','Take photos of each drain'],'Toitures Mont-Royal'],
+  'Repaint loading dock lines':['Exterior','Pavement','Annual','1 day','Low',['Loading dock LD-1'],'Repaint the faded safety lines and the truck bays at the loading dock.',['Block the dock for the day','Clean and dry the surface','Repaint the safety lines in yellow','Repaint the bay numbers','Reopen once dry'],'Entretien Lumina'],
+  'Vérification de l’onduleur UPS-1':['Electrical','UPS','Bi-annual','2 hours','High',['Onduleur UPS-1'],'Vérification semestrielle de l’onduleur qui protège les équipements de diffusion.',['Prévenir l’équipe technique de la diffusion','Vérifier l’autonomie des batteries [min]','Inspecter les ventilateurs','Lire le journal d’événements','Faire un essai de transfert sur batterie'],'Shepard'],
+  'Update conference room firmware':['Audio-visual','Video conferencing','Bi-annual','2 hours','Low',['Conference system VC-101','Wall display TV-101'],'Firmware update on the meeting room systems, after hours.',['Check that no meeting is booked','Back up the current configuration','Install the latest firmware','Test a call and screen sharing','Reset the room to default settings'],'Northline Controls'],
+  'Pest control quarterly visit':['Janitorial','Pest control','Every 3 months','2 hours','Medium',['Kitchen'],'Quarterly preventive visit, focused on the kitchen and the loading dock.',['Inspect the bait stations','Replace the glue boards','Check door sweeps at the loading dock','Note any activity on the site map','Leave the visit report with security'],'Entretien Lumina'],
+  'Remplacement des filtres de la hotte':['Kitchen equipment','Exhaust hoods','Monthly','1 hour','Medium',['Hotte de cuisine EH-101'],'Remplacement mensuel des filtres à graisse de la hotte de la cafétéria.',['Éteindre l’équipement de cuisson','Retirer les filtres encrassés','Installer les filtres propres','Vérifier le fonctionnement du ventilateur','Envoyer les filtres sales au nettoyage'],'Entretien Lumina'],
+  'Chiller seasonal shutdown':['HVAC','Chiller','Annual','1 day','Medium',['Chiller CH-1'],'Fall shutdown of the chiller and winterization of the condenser water loop.',['Record final operating pressures [kPa]','Shut down the chiller and pumps','Drain the condenser water loop','Inspect the tubes for scale','Lock out until spring'],'Mécanique Laurentide'],
+  'Inspect parking garage CO sensors':['Building automation','Gas detection','Annual','4 hours','High',['CO sensor CO-P101','CO sensor CO-P102'],'Annual calibration of carbon monoxide sensors in the underground parking.',['Bump test each sensor with calibration gas','Record the reading at 50 ppm [ppm]','Check the exhaust fan starts on alarm','Replace sensors past their service life','Update the calibration labels'],'Northline Controls'],
+  'Nettoyage des vitres extérieures':['Janitorial','Windows','Bi-annual','2 days','Low',['Façade est','Façade sud'],'Lavage semestriel des vitres extérieures par nacelle.',['Réserver la zone de travail sur le trottoir','Installer la nacelle','Laver les vitres de la façade est','Laver les vitres de la façade sud','Retirer le périmètre de sécurité'],'Entretien Lumina'],
+  'Replace worn door closer, entrance B':['Architectural','Doors','One time','2 hours','Medium',['Door closer DC-B1'],'The door at entrance B slams shut. Replace the closer.',['Remove the old closer','Install the new closer','Adjust the closing speed','Check the latch engages','Test the door with the access card reader'],'Entretien Lumina'],
+  'Sweep snow':['Roofing','Snow removal','Every 2 weeks','4 hours','Medium',['Panneaux solaires'],'Clear snow from the solar panels after each snowfall over 10 cm.',['Check roof access is safe','Brush snow off with a soft roof rake','Clear around the inverter','Check the panels for damage'],'Toitures Mont-Royal'],
+  'Adjust inclination':['Electrical','Solar','Bi-annual','4 hours','Low',['Panneaux solaires'],'Seasonal tilt change for better winter output.',['Loosen the mounting brackets','Set the tilt to the winter angle','Tighten the brackets to torque','Record inverter output after adjustment [kW]'],'Toitures Mont-Royal']
+};
+const woSlug = (n) => n.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const WO_BY_SLUG = Object.fromEntries(Object.keys(WO_SPEC).map(n=>[woSlug(n),n]));
+const stSlug = (st) => st.toLowerCase().replace(/ /g,'-');
+const STATUS_BY_SLUG = {planned:'Planned',ready:'Ready','in-progress':'In progress','on-hold':'On hold',overdue:'Overdue',completed:'Completed'};
+/* The status rides along in the link, so the detail page opens with the status shown where it was clicked. */
+const woHref = (n,st) => '#wo/'+woSlug(n)+(st?'/'+stSlug(st):'');
+const WO_FR = new Set(['Toit des Studios','Inspection annuelle des extincteurs','Nettoyage des conduits de ventilation','Essai de la génératrice d’urgence','Remplacement des courroies EF-3','Déneigement de la toiture','Inspection thermographique du panneau électrique','Vérification des clapets coupe-feu','Test des détecteurs de fumée','Inspection des gicleurs','Lubrification des pompes de circulation','Vérification de l’onduleur UPS-1','Remplacement des filtres de la hotte','Nettoyage des vitres extérieures']);
+const isFr = (n) => WO_FR.has(n);
+const NOTES_EN = ['Access is through the service corridor. Ask security for the key at the desk.','Parts are on site, in the mechanical room cage.','Studio recording until 2 pm, please avoid noisy work before then.','Please send photos before and after, the property manager wants them for the report.','Last visit found nothing abnormal. Same procedure as last year.','{asset}: minor wear noticed last time, check it again.','Quote for the follow-up repairs sent to the property manager.'];
+const NOTES_FR = ['L’accès se fait par le corridor de service. Demander la clé à la sécurité.','Les pièces sont sur place, dans la cage de la salle mécanique.','Enregistrement en studio jusqu’à 14 h, éviter les travaux bruyants avant.','Merci d’envoyer des photos avant et après pour le rapport.','Rien d’anormal à la dernière visite. Même procédure que l’an passé.','{asset} : légère usure notée la dernière fois, à revérifier.','Soumission pour les réparations envoyée au gestionnaire immobilier.'];
+const NOTE_DATES = ['Oct 12, 2022','Oct 28, 2022','Nov 3, 2022','Nov 12, 2022','Nov 21, 2022'];
+/* Everything a work order detail page shows, built once per title. */
+const woCache = new Map();
+function woDetail(name){
+  if(woCache.has(name)) return woCache.get(name);
+  const [cat,type,rec,dur,prio,assets,desc,tasks,supplier] = WO_SPEC[name] || WO_SPEC['Toit des Studios'];
+  const r=rng('wo|'+name), fr=isFr(name);
+  const crew = peopleAt(supplier).filter(p=>/echnician|Foreman/.test(p.title));
+  const who = name==='Toit des Studios' ? CRISTOPHER : (crew.length?pick(r,crew):pick(r,peopleAt(supplier)));
+  const groups = assets.map((a,i)=>({title:a,tasks:i===0?tasks:tasks.slice(0,Math.max(2,tasks.length-2))}));
+  groups.push({title:fr?'Autres tâches':'Other tasks',tasks:fr?['Mettre à jour le registre','Nettoyer la zone de travail']:['Update the logbook','Clean up the work area']});
+  const day = 1+Math.floor(r()*28);
+  const pool = shuffle(r,fr?NOTES_FR:NOTES_EN).slice(0,3+Math.floor(r()*2));
+  const authors = [who, HUDSON, ...shuffle(r,INTERNAL.slice(0,3))];
+  const notes = pool.map((t,i)=>({text:t.replace('{asset}',assets[0]),who:authors[i%authors.length].name,when:NOTE_DATES[NOTE_DATES.length-1-i-(day%2)],pinned:i===0,imgs:i===1&&r()<.6?2:0}));
+  const d = {name,cat,type,rec,dur,prio,desc,who,groups,notes,due:`Dec ${day}, 2022`};
+  setWoStatus(d,'In progress');
+  woCache.set(name,d); return d;
+}
+/* Checklist progress follows the status: nothing ticked before work starts, everything ticked once completed. */
+function setWoStatus(d,status){
+  if(d.status===status) return;
+  d.status=status;
+  if(d.checksTouched) return;
+  const r=rng('checks|'+d.name), last=d.groups.length-1;
+  d.checks=d.groups.map((g,gi)=>g.tasks.map((_,ti)=> status==='Completed' ? true : (status==='Planned'||status==='Ready') ? false : gi===last ? false : (ti===0 || r()<.4)));
+}
+
+/* Asset catalog: [domain, type, English label, French label, tag prefix, brands, where it fits].
+   Where: k = kitchen, m = meeting room, g = any room, r = rooftop. */
+const ASSET_CATALOG = [
+  ['Kitchen equipment','Dishwasher','Commercial dishwasher','Lave-vaisselle commercial','DW',['Hobart','Champion','Jackson'],'k'],
+  ['Kitchen equipment','Range hood','Exhaust hood','Hotte de cuisine','EH',['CaptiveAire','Halton'],'k'],
+  ['Kitchen equipment','Combi oven','Combi oven','Four mixte','OV',['Rational','Garland'],'k'],
+  ['Kitchen equipment','Fryer','Deep fryer','Friteuse','FR',['Frymaster','Pitco'],'k'],
+  ['Refrigeration','Walk-in cooler','Walk-in cooler','Chambre froide','WIC',['Kolpak','Foster'],'k'],
+  ['Refrigeration','Refrigerator','Reach-in refrigerator','Réfrigérateur vertical','RF',['True','Traulsen'],'k'],
+  ['Refrigeration','Ice machine','Ice machine','Machine à glace','IM',['Hoshizaki','Manitowoc','Scotsman'],'k'],
+  ['Plumbing','Water heater','Water heater','Chauffe-eau','WH',['A.O. Smith','Rheem','Bradford White'],'kg'],
+  ['Plumbing','Grease interceptor','Grease interceptor','Séparateur de graisse','GI',['Zurn','Watts'],'k'],
+  ['Plumbing','Backflow preventer','Backflow preventer','Dispositif antirefoulement','BF',['Watts','Zurn'],'kg'],
+  ['HVAC','Air handling unit','Air handling unit','Unité de traitement d’air','AHU',['Trane','Daikin','Carrier'],'g'],
+  ['HVAC','Fan coil','Fan coil unit','Ventilo-convecteur','FC',['Daikin','Trane'],'gm'],
+  ['HVAC','Exhaust fan','Exhaust fan','Ventilateur d’extraction','EF',['Greenheck','Loren Cook'],'kgr'],
+  ['HVAC','VAV box','VAV box','Boîte VAV','VAV',['Price','Titus'],'gm'],
+  ['HVAC','Thermostat','Thermostat','Thermostat','TS',['Honeywell','Siemens'],'kgm'],
+  ['HVAC','Rooftop unit','Rooftop unit','Unité de toiture','RTU',['Trane','Carrier','Lennox'],'r'],
+  ['HVAC','Condenser','Condensing unit','Unité de condensation','CU',['Copeland','Daikin'],'r'],
+  ['Electrical','Panelboard','Electrical panel','Panneau électrique','PE',['Schneider Electric','Eaton','Siemens'],'kg'],
+  ['Electrical','Lighting','LED light fixture','Luminaire DEL','LT',['Lithonia','Philips'],'kgm'],
+  ['Electrical','Emergency lighting','Emergency light','Éclairage d’urgence','EL',['Beghelli','Lithonia'],'kgm'],
+  ['Electrical','Solar inverter','Solar inverter','Onduleur solaire','INV',['SMA','Fronius'],'r'],
+  ['Fire safety','Extinguisher','Fire extinguisher','Extincteur','EX',['Amerex','Kidde'],'kgmr'],
+  ['Fire safety','Smoke detector','Smoke detector','Détecteur de fumée','SD',['System Sensor','Edwards'],'kgm'],
+  ['Fire safety','Sprinkler valve','Sprinkler zone valve','Vanne de gicleurs','SP',['Viking','Tyco'],'g'],
+  ['Audio-visual','Display','Wall display','Écran mural','TV',['Samsung','LG','Sony'],'m'],
+  ['Audio-visual','Video conferencing','Conference system','Système de visioconférence','VC',['Poly','Logitech','Cisco'],'m'],
+  ['IT','Wireless access point','Wi-Fi access point','Point d’accès Wi-Fi','AP',['Cisco','Aruba'],'gm'],
+  ['Building automation','Controller','BMS controller','Contrôleur GTB','BMS',['Johnson Controls','Distech Controls','Siemens'],'gr'],
+  ['Roofing','Roof drain','Roof drain','Drain de toit','RD',['Zurn','Jay R. Smith'],'r']
+];
+const SOLAR = {name:'Panneaux solaires',domain:'Electrical',type:'Solar panel',brand:'Bousquet Technologies',model:'HDGH-65-SS-O-4-HTM-WO',year:2020,solar:true};
+const roomTags = (room,floor) => floor==='Rooftop' ? 'r' : /kitchen/i.test(room) ? 'k' : /meeting/i.test(room) ? 'm' : 'g';
+const assetCache = new Map();
+/* All assets in one room. Kitchens and rooftops hold more equipment than ordinary rooms. */
+function roomAssets(wing,floor,room){
+  const key=`${wing}|${floor}|${room}${bKey()}`; if(assetCache.has(key)) return assetCache.get(key);
+  const r=rng('assets|'+key), tag=roomTags(room,floor);
+  const pool=ASSET_CATALOG.filter(c=>c[6].includes(tag)||(tag!=='r'&&c[6].includes('g')&&r()<.5));
+  const n = tag==='k' ? 60+Math.floor(r()*90) : tag==='r' ? 25+Math.floor(r()*40) : 8+Math.floor(r()*28);
+  const fl = floor==='Rooftop' ? 'R' : floor.replace(/\D/g,'');
+  const counters={}, out=[];
+  for(let i=0;i<n;i++){
+    const [domain,type,en,fr,pre,brands]=pick(r,pool);
+    counters[pre]=(counters[pre]||0)+1;
+    const brand=pick(r,brands);
+    const model=`${brand.replace(/[^A-Z]/g,'').slice(0,3)||brand.slice(0,3).toUpperCase()}-${100+Math.floor(r()*900)}${pick(r,['','A','B','X','LT','HD'])}`;
+    const a={name:`${r()<.4?fr:en} ${pre}-${fl}${String(counters[pre]).padStart(2,'0')}`,domain,type,brand,model,year:2019+Math.floor(r()*5),openWO:r()<.15};
+    const sameDomain=out.filter(o=>o.domain===domain&&!o.parent);
+    if(sameDomain.length && r()<.18) a.parent=pick(r,sameDomain).name;
+    out.push(a);
+  }
+  if(!state.building && wing==='Wing name A' && floor==='Floor 1' && /kitchen/i.test(room)) out.splice(9,0,SOLAR); // the one asset with a designed detail page
+  assetCache.set(key,out); return out;
+}
+
 const state = {
   woView:'list', dense:false, open:{}, theme:null, authed:false,
-  checks:{a:[false,true,true,false,false],b:[false,true,false],c:[true,true]},
-  modalChecks:[false,true,true,true,false],
+  checks:[], modalChecks:[], modalGrp:0, building:0, woName:'Toit des Studios',
   notes:[
-    {pinned:true,text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:'Firstname Last name',when:'Oct 12, 2022'},
-    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:'Firstname Last name',when:'Nov 12, 2022',imgs:2},
-    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:'Firstname Last name',when:'Nov 12, 2022'},
-    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:'Firstname Last name',when:'Nov 12, 2022'}
+    {pinned:true,text:'Le panneau 14 a une fissure dans le coin inférieur, à surveiller au prochain nettoyage.',who:EXTERNAL[2].name,when:'Oct 12, 2022'},
+    {text:'Production in October was 6% below forecast. Probably dirt, cleaning is booked.',who:INTERNAL[0].name,when:'Nov 12, 2022',imgs:2},
+    {text:'Accès au toit par l’escalier C seulement, l’échelle du 11e est condamnée.',who:INTERNAL[3].name,when:'Nov 12, 2022'},
+    {text:'Warranty runs until 2030, keep Bousquet Technologies in copy for any repair.',who:EXTERNAL[7].name,when:'Nov 12, 2022'}
   ],
   assetTab:'Work orders', wing:'Wing name A', floor:'Floor 1',
-  month:11, year:2022, calView:'Month', placed:{}, queue:null, woStatus:'In progress',
+  month:11, year:2022, calView:'Month', placed:{}, queue:null, 
   assignee:'Hudson Alvarez'
 };
-state.queue = Array.from({length:13},(_,i)=>({id:'p'+i,status:'Planned',name:'Name of work order'}));
+state.queue = Array.from({length:13},(_,i)=>({id:'p'+i,status:'Planned',name:woName('dec-queue',i)}));
+state.queue0 = [...state.queue];
+state.assetNotes = state.notes;
 
 /* ---------- shared pieces ---------- */
 const NAV = [['analytics','Analytics'],['buildings','Buildings'],['contacts','Contacts'],['mywo','Work orders assigned to me']];
@@ -512,42 +739,43 @@ function filterRail(fields){
     if (typeof x==='string' && x.startsWith('#')) return `<div class="flabel">${x.slice(1)}</div>`;
     if (x==='search') return `<label class="field">${ic('search',18)}<input id="f-search" placeholder="Search" aria-label="Search"></label>`;
     if (x.toggle) return `<label class="switch"><input type="checkbox" id="f-${x.toggle.replace(/\W/g,'')}">${x.toggle}</label>`;
-    const [label,val,sub] = Array.isArray(x)?x:[x];
+    const [label,val,sub,opts] = Array.isArray(x)?x:[x];
     const id='f-'+label.replace(/\W/g,'').toLowerCase();
-    return `<label class="field ${val?'filled':''}">${val?`<span class="fl">${label}</span>`:''}${sub?ic('sub',16):''}<select id="${id}" ${val?'':'required'} aria-label="${label}"><option value="" ${val?'':'selected'} disabled hidden>${label}</option>${val?`<option selected>${val}</option>`:''}<option>Option A</option><option>Option B</option></select>${ic('chev',18)}</label>`;
+    return `<label class="field ${val?'filled':''}">${val?`<span class="fl">${label}</span>`:''}${sub?ic('sub',16):''}<select id="${id}" ${val?'':'required'} aria-label="${label}"><option value="" ${val?'':'selected'} disabled hidden>${label}</option>${val?`<option selected>${val}</option>`:''}${(opts||['Option A','Option B']).map(o=>`<option>${o}</option>`).join('')}</select>${ic('chev',18)}</label>`;
   };
   return `<aside class="card filters"><h3>Filters</h3>${fields.map(f).join('')}
     <div class="f-actions"><button class="txt-btn" style="color:var(--red)" data-act="reset">Reset filter</button><button class="btn btn-soft btn-sm" data-act="apply">Apply filter</button></div></aside>`;
 }
-const WO_FILTERS = (assignee) => ['search','#General',['Buildings','All buildings'],'Status','Priority',assignee?['Assignee',assignee]:'Assignee','Supplier (company)','#Time',['Due date','From {date} to {date}'],'Recurrence','Work order duration','#Category','Maintenance category','Asset category'];
+const WO_FILTERS = (assignee) => ['search','#General',['Buildings','All buildings','',['All buildings',...BUILDINGS]],'Status','Priority',assignee?['Assignee',assignee]:'Assignee','Supplier (company)','#Time',['Due date','From {date} to {date}'],'Recurrence','Work order duration','#Category','Maintenance category','Asset category'];
 
-function woCard(i=0){
-  const short = i%3===2;
-  return `<a class="card wo" href="#wo">
-    <div class="wo-top">${chip('Ready')}<span class="chip c-green">${ic('down',12)} Low</span><span class="k" role="button" aria-label="Options">${ic('dots',18)}</span></div>
-    <h4>Work Order Name</h4><div class="due">Due Date: 15/01/2023</div>
+function woCard(i=0,key='',st='Ready'){
+  const short = i%3===2, n=woName('card|'+key,i);
+  return `<a class="card wo" href="${woHref(n,st)}">
+    <div class="wo-top">${chip(st)}<span class="chip c-green">${ic('down',12)} Low</span><span class="k" role="button" aria-label="Options">${ic('dots',18)}</span></div>
+    <h4>${n}</h4><div class="due">Due Date: 15/01/2023</div>
     <p>Unlike the three battery technologies explained above, lithium-ion batteries do not have a single combination of elements.</p>
-    <ul><li>${ic('user',16)}Cristopher Cardenas</li><li>${ic('pin',16)}Radio-Canada</li><li>${ic('wrench',16)}Heater 300</li><li>${ic('repeat',16)}Annually</li></ul></a>`;
+    <ul><li>${ic('user',16)}Cristopher Cardenas</li><li>${ic('pin',16)}${key.startsWith('bwo')?curB().short:BLDGS[hashStr('loc'+n)%BLDGS.length].short}</li><li>${ic('wrench',16)}Heater 300</li><li>${ic('repeat',16)}Annually</li></ul></a>`;
 }
 function acc(key,title,content,{open=false,dim=false}={}){
   const isOpen = state.open[key]??open;
   return `<section class="acc ${isOpen?'open':''}"><button class="acc-h ${dim?'dim':''}" data-acc="${key}" aria-expanded="${isOpen}">${title}<span class="chev">${ic('chev',20)}</span></button>${isOpen?`<div class="acc-b">${content}</div>`:''}</section>`;
 }
 function woBoard(prefix,counts){
-  const cards = (n)=>`<div class="wo-grid">${Array.from({length:n},(_,i)=>woCard(i)).join('')}</div>`;
-  return acc(prefix+'pl',`Planned (${counts[0]})`,counts[0]?cards(Math.min(counts[0],3)):'<p style="color:var(--fg-2);margin:0">No planned work orders.</p>',{dim:!counts[0]})
-   + acc(prefix+'rd',`Ready (${counts[1]})`,cards(Math.min(counts[1],6)))
-   + acc(prefix+'ip',`In progress (${counts[2]})`,cards(counts[2]),{open:true})
-   + acc(prefix+'oh',`On hold (${counts[3]})`,cards(counts[3]),{open:true})
-   + acc(prefix+'od',`Overdue (${counts[4]})`,cards(counts[4]));
+  const GS={pl:'Planned',rd:'Ready',ip:'In progress',oh:'On hold',od:'Overdue'};
+  const cards = (n,g='')=>`<div class="wo-grid">${Array.from({length:n},(_,i)=>woCard(i,prefix+g,GS[g])).join('')}</div>`;
+  return acc(prefix+'pl',`Planned (${counts[0]})`,counts[0]?cards(Math.min(counts[0],3),'pl'):'<p style="color:var(--fg-2);margin:0">No planned work orders.</p>',{dim:!counts[0]})
+   + acc(prefix+'rd',`Ready (${counts[1]})`,cards(Math.min(counts[1],6),'rd'))
+   + acc(prefix+'ip',`In progress (${counts[2]})`,cards(counts[2],'ip'),{open:true})
+   + acc(prefix+'oh',`On hold (${counts[3]})`,cards(counts[3],'oh'),{open:true})
+   + acc(prefix+'od',`Overdue (${counts[4]})`,cards(counts[4],'od'));
 }
-function contactCard(){
-  return `<div class="card cc"><div class="cc-h">${avatar('CC',48)}<div><b>Cristopher Cardenas</b><span>Technician</span></div><button class="k" aria-label="Options">${ic('dots',18)}</button></div>
-  <ul><li>${ic('brief',15)}Electricity</li><li>${ic('bldg',15)}Shepard</li><li>${ic('pinO',15)}Radio-Canada</li>
-  <li>${ic('phone',15)}(514) 897-6312 <button class="copy" data-copy="(514) 897-6312" aria-label="Copy phone">${ic('copy',14)}</button></li>
-  <li>${ic('mail',15)}ccardenas@shepard.com <button class="copy" data-copy="ccardenas@shepard.com" aria-label="Copy email">${ic('copy',14)}</button></li></ul></div>`;
+function contactCard(p=CRISTOPHER){
+  return `<div class="card cc"><div class="cc-h">${avatar(p.initials,48)}<div><b>${p.name}</b><span>${p.title}</span></div><button class="k" aria-label="Options">${ic('dots',18)}</button></div>
+  <ul><li>${ic('brief',15)}${p.disc||p.title}</li><li>${ic('bldg',15)}${p.company}</li><li>${ic('pinO',15)}${p===CRISTOPHER?'Radio-Canada':BLDGS[hashStr('loc'+p.name)%BLDGS.length].short}</li>
+  <li>${ic('phone',15)}${p.phone} <button class="copy" data-copy="${p.phone}" aria-label="Copy phone">${ic('copy',14)}</button></li>
+  <li>${ic('mail',15)}${p.email} <button class="copy" data-copy="${p.email}" aria-label="Copy email">${ic('copy',14)}</button></li></ul></div>`;
 }
-const personCard = () => `<div class="card cc" style="padding:20px">${contactCard().replace('<div class="card cc">','').replace(/<button class="k"[\s\S]*?<\/button>/,'').replace(/<\/div>$/,'')}</div>`;
+const personCard = (p) => `<div class="card cc" style="padding:20px">${contactCard(p).replace('<div class="card cc">','').replace(/<button class="k"[\s\S]*?<\/button>/,'').replace(/<\/div>$/,'')}</div>`;
 
 /* ---------- charts ---------- */
 function curve(pts){ let d=`M${pts[0][0]},${pts[0][1]}`; for(let i=1;i<pts.length;i++){const [x0,y0]=pts[i-1],[x1,y1]=pts[i];const cx=(x0+x1)/2;d+=` C${cx},${y0} ${cx},${y1} ${x1},${y1}`;} return d; }
@@ -573,11 +801,11 @@ function scatter(w=960,h=210){
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img" aria-label="Duration variance scatter by month">${[10,5,0,-5,-10].map(t=>`<text x="${L-8}" y="${y(t)+4}" font-size="10" text-anchor="end">${t>0?'+'+t:t}</text><line x1="${L}" x2="${w-8}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)" stroke-dasharray="3 3"/>`).join('')}
   ${MONTHS.map((m,i)=>`<text x="${L+i*iw/11}" y="${h-6}" font-size="10" text-anchor="middle">${m}</text>`).join('')}${pts}</svg>`;
 }
-function ring(score){ const r=70,c=2*Math.PI*r; return `<svg viewBox="0 0 180 180" width="180" style="max-width:100%;justify-self:center" role="img" aria-label="Building score ${score} out of 100"><circle cx="90" cy="90" r="${r}" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="10"/><circle class="ring-arc" cx="90" cy="90" r="${r}" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-dasharray="${c}" style="--c:${c};--off:${c*(1-score/100)}" transform="rotate(-90 90 90)"/><text x="90" y="72" text-anchor="middle" font-size="12" style="fill:#fff">Building score</text><text data-count x="90" y="104" text-anchor="middle" font-size="34" font-weight="700" style="fill:#fff">${score}</text><text x="90" y="126" text-anchor="middle" font-size="12" style="fill:#fff">Very good</text></svg>`; }
+function ring(score){ const r=70,c=2*Math.PI*r; return `<svg viewBox="0 0 180 180" width="180" style="max-width:100%;justify-self:center" role="img" aria-label="Building score ${score} out of 100"><circle cx="90" cy="90" r="${r}" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="10"/><circle class="ring-arc" cx="90" cy="90" r="${r}" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-dasharray="${c}" style="--c:${c};--off:${c*(1-score/100)}" transform="rotate(-90 90 90)"/><text x="90" y="72" text-anchor="middle" font-size="12" style="fill:#fff">Building score</text><text data-count x="90" y="104" text-anchor="middle" font-size="34" font-weight="700" style="fill:#fff">${score}</text><text x="90" y="126" text-anchor="middle" font-size="12" style="fill:#fff">${score>=80?'Excellent':score>=70?'Very good':score>=60?'Good':'Fair'}</text></svg>`; }
 
 function statsRow(vals){ const lab=['Planned','Ready','In progress','On hold','Overdue','Completed']; return `<div class="stats num">${vals.map((v,i)=>`<div class="stat"><b data-count>${v}</b>${chip(lab[i])}</div>`).join('')}</div>`; }
 function assigneeBars(n=10,clickJon=false){
-  return `<div class="bars">${Array.from({length:n},(_,i)=>{const jon=clickJon&&i===5;return `<div class="bar-row ${clickJon?'click':''}" ${clickJon?`data-go="${jon?'assignee-jon':'assignee-jon'}"`:''}><div class="bar-name"><b>${jon?'Jon Snow':'Firstname Lastname'}</b><span>Company</span></div>${bar(BARSETS[i%10])}</div>`;}).join('')}</div>`;
+  return `<div class="bars">${Array.from({length:n},(_,i)=>{const p=ASSIGNEES[i];return `<div class="bar-row ${clickJon?'click':''}" ${clickJon?`data-go="assignee-jon"`:''}><div class="bar-name"><b>${p.name}</b><span>${p.company}</span></div>${bar(BARSETS[i%10])}</div>`;}).join('')}</div>`;
 }
 
 /* ---------- screens ---------- */
@@ -610,7 +838,7 @@ S.analytics = () => header('analytics') + `<main class="page">${pageHead('Analyt
     <div class="legend" style="padding-top:8px"><span><i style="background:var(--grey-dot)"></i>Within estimated duration</span><span><i style="background:var(--green)"></i>Less than estimated duration</span><span><i style="background:var(--red)"></i>More than estimated duration</span></div></section>
   </div>
   <div class="col"><a class="btn btn-primary" href="#calendar">${ic('cal',16)} Schedule work order in calendar view</a>
-   <section class="card"><div class="card-h"><h3>Recent work orders</h3></div><div class="timeline">${RECENT.map(s=>`<a class="tl" href="#wo" style="color:inherit"><span class="dot" style="background:${DOT[s]}"></span><div><div class="meta"><span>Nov 12, 2022</span>${chip(s)}</div><b>Work order name</b><small>Assignee: First name Last name<br>Building name</small></div></a>`).join('')}</div></section>
+   <section class="card"><div class="card-h"><h3>Recent work orders</h3></div><div class="timeline">${RECENT.map((s,i)=>`<a class="tl" href="${woHref(woName('recent',i),s)}" style="color:inherit"><span class="dot" style="background:${DOT[s]}"></span><div><div class="meta"><span>Nov 12, 2022</span>${chip(s)}</div><b>${woName('recent',i)}</b><small>Assignee: ${woPerson('recent'+i).name}<br>${BUILDINGS[hashStr('bldg'+i)%BUILDINGS.length]}</small></div></a>`).join('')}</div></section>
   </div></div></main>`;
 
 const perfEmpty = (extra='') => `<div class="empty-ill"><p>Building performance shows the energy performance of ${extra||'all buildings'}. It will feed into ESG reporting.</p>
@@ -627,7 +855,7 @@ S['analytics-perf'] = () => header('analytics') + `<main class="page">${pageHead
 
 S.assignees = () => header('analytics') + `<main class="page">${pageHead('Work orders by assignee',{back:'analytics'})}
  <div class="split">${filterRail(WO_FILTERS())}<section class="card" style="padding:8px 0">
-  <div class="bars">${Array.from({length:20},(_,i)=>{const jon=i===5;return `<div class="bar-row click" data-go="assignee-jon" title="Open ${jon?'Jon Snow':'this assignee'}"><div class="bar-name"><b>${jon?'Jon Snow':'Firstname Lastname'}</b><span>Company</span></div>${bar(BARSETS[i%10])}</div>`;}).join('')}</div>${legend4()}</section></div></main>`;
+  <div class="bars">${Array.from({length:20},(_,i)=>{const p=ASSIGNEES[i];return `<div class="bar-row click" data-go="assignee-jon" title="Open ${p.name}"><div class="bar-name"><b>${p.name}</b><span>${p.company}</span></div>${bar(BARSETS[i%10])}</div>`;}).join('')}</div>${legend4()}</section></div></main>`;
 
 S['assignee-jon'] = () => header('analytics') + `<main class="page">${pageHead('Work orders assigned to Jon Snow',{back:'assignees'})}<div class="split">${filterRail(WO_FILTERS('Jon Snow'))}<div>${woBoard('jon',[0,6,3,2,1])}</div></div></main>`;
 S.mywo = () => header('mywo') + `<main class="page">${pageHead('Work orders assigned to Hudson Alvarez (me)')}<div class="split">${filterRail(WO_FILTERS('Hudson Alvarez'))}<div>${woBoard('me',[0,6,3,2,1])}</div></div></main>`;
@@ -636,8 +864,8 @@ S.tech = () => header('mywo') + `<main class="page">${pageHead('Work orders assi
 /* building */
 const BT = [['building','At a glance'],['building-analytics','Analytics'],['building-wo','Work orders'],['building-assets','Assets']];
 const bTabs = (on,sub='') => `<div style="margin-bottom:24px;border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden"><div class="tabs" style="border-radius:0">${BT.map(([h,l])=>`<a class="tab ${on===h?'on':''}" href="#${h}">${l}</a>`).join('')}</div>${sub}</div>`;
-const bHead = () => pageHead('Maison de Radio-Canada');
-const bldgPhoto = () => `<div class="building-photo" role="img" aria-label="Aerial view of Maison de Radio-Canada">
+const bHead = () => pageHead(curB().name);
+const bldgPhoto = () => curB().photo ? `<div class="building-photo" style="overflow:hidden"><img src="${curB().photo}" alt="${curB().name} at dusk" style="width:100%;height:100%;object-fit:cover;object-position:60% 50%;display:block"></div>` : `<div class="building-photo" role="img" aria-label="Aerial view of ${curB().name}">
   <svg viewBox="0 0 320 180" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect y="95" width="320" height="85" fill="#6B8F71"/><path d="M0 70l60-6 70 4 60-8 70 6 60-4v40H0z" fill="#9DB6CC"/>
   <path d="M30 60h260" stroke="#5E7891" stroke-width="2"/><path d="M60 60l20-12 20 12M200 60l20-12 20 12" stroke="#5E7891" fill="none"/>
   <polygon points="70,150 100,95 150,92 150,150" fill="#3E6B8C"/><polygon points="150,92 175,100 175,152 150,150" fill="#2C5270"/>
@@ -645,53 +873,60 @@ const bldgPhoto = () => `<div class="building-photo" role="img" aria-label="Aeri
   <path d="M75 140h70M78 128h68M84 116h62M90 104h56" stroke="#7FA9C9" stroke-width="1"/></svg></div>`;
 S.building = () => header('buildings') + `<main class="page">${bHead()}${bTabs('building')}
  <div class="split"><div class="col" style="gap:16px">${bldgPhoto()}
-  <div class="kv" style="gap:8px;font-size:13px"><div>Description of the Maison de Radio Canada (optional info)</div><div style="display:flex;gap:6px;align-items:center">${ic('pinO',15)} Papineau / René-Levesque, Montréal, Québec</div><div style="display:flex;gap:6px;align-items:center" class="num">${ic('area',15)} 418,822 sq.ft.</div><div style="display:flex;gap:6px;align-items:center">${ic('cal',15)} Completed in 2020</div></div>
-  <div class="card mgr">${[['Building manager'],['ESG Director'],['Property manager'],['Portfolio manager']].map(([r])=>`<button data-go="contacts"><div><b>First Lastname</b><span>${r}</span></div>${ic('chev',18)}</button>`).join('')}</div></div>
+  <div class="kv" style="gap:8px;font-size:13px"><div>${curB().desc}</div><div style="display:flex;gap:6px;align-items:center">${ic('pinO',15)} ${curB().addr}</div><div style="display:flex;gap:6px;align-items:center" class="num">${ic('area',15)} ${curB().area} sq.ft.</div><div style="display:flex;gap:6px;align-items:center">${ic('cal',15)} ${curB().year}</div></div>
+  <div class="card mgr">${bManagers().map((p,i)=>[['Building manager','ESG Director','Property manager','Portfolio manager'][i],p]).map(([r,p])=>`<button data-go="contacts"><div><b>${p.name}</b><span>${r}</span></div>${ic('chev',18)}</button>`).join('')}</div></div>
  <div class="col"><h2 style="font-size:20px">Building performance at a glance</h2>
-  <div class="two" style="grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr)"><div class="score"><h3>Overall building performance</h3><small style="margin-top:-10px">Last 30 days</small>${ring(74)}<div style="display:flex;gap:8px;align-items:center;font-size:13px"><span style="background:rgba(255,255,255,.25);border-radius:50%;width:22px;height:22px;display:grid;place-items:center">${ic('trend',14)}</span>+3% than 60 days ago</div></div>
+  <div class="two" style="grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr)"><div class="score"><h3>Overall building performance</h3><small style="margin-top:-10px">Last 30 days</small>${ring(bScore())}<div style="display:flex;gap:8px;align-items:center;font-size:13px"><span style="background:rgba(255,255,255,.25);border-radius:50%;width:22px;height:22px;display:grid;place-items:center">${ic('trend',14)}</span>+3% than 60 days ago</div></div>
   <section class="card"><div class="card-h"><h3 style="font-size:16px">Performance score over time</h3>${sel('2023')}</div><div style="padding:8px 16px 16px">${lineChart([{c:'var(--primary)',v:[38,38,42,52,58,58,58,62,66,68,64,52]}],{h:220})}</div></section></div>
   <h2 style="font-size:20px;margin-top:8px">Maintenance at a glance</h2>
-  <section class="card"><div class="card-h"><h3 style="font-size:16px">Work orders in numbers</h3>${sel('From (Date) to (Date)')}</div>${statsRow([16,56,156,8,12,820])}
+  <section class="card"><div class="card-h"><h3 style="font-size:16px">Work orders in numbers</h3>${sel('From (Date) to (Date)')}</div>${statsRow(bStats())}
    <div style="border-top:1px solid var(--line);padding-top:20px"><h3 style="font-size:16px;padding:0 24px">Top 10 performers</h3>${assigneeBars(10)}</div></section>
  </div></div></main>`;
 S['building-analytics'] = () => header('buildings') + `<main class="page">${bHead()}${bTabs('building-analytics',`<div class="subtabs"><a class="tab on" href="#building-analytics">Building maintenance</a><a class="tab" href="#building-perf">Building performance</a></div>`)}
- <div class="col"><section class="card"><div class="card-h"><h3>Work orders in numbers</h3>${sel('From (Date) to (Date)')}</div>${statsRow([16,56,156,8,12,820])}</section>
+ <div class="col"><section class="card"><div class="card-h"><h3>Work orders in numbers</h3>${sel('From (Date) to (Date)')}</div>${statsRow(bStats())}</section>
  <section class="card"><div class="card-h"><h3>Work orders by assignee (Top 10 performers)</h3>${sel('From (Date) to (Date)')}</div>${assigneeBars(10,true)}${legend4()}<div class="card-f"><a class="txt-btn" href="#assignees">View all ${ic('chevR',16)}</a></div></section>
  <section class="card"><div class="card-h"><h3>Work orders by maintenance category (Top 10)</h3>${sel('From (Date) to (Date)')}</div><div class="bars">${CATSETS.map((v,i)=>`<div class="bar-row"><div class="bar-name"><b>Category ${i+1}</b></div>${bar(v)}</div>`).join('')}</div>${legend4()}</section>
  <a class="btn btn-primary" style="justify-self:start" href="#calendar">${ic('cal',16)} Schedule work order in calendar view</a></div></main>`;
-S['building-perf'] = () => header('buildings') + `<main class="page">${bHead()}${bTabs('building-analytics',`<div class="subtabs"><a class="tab" href="#building-analytics">Building maintenance</a><a class="tab on" href="#building-perf">Building performance</a></div>`)}${perfEmpty('Maison de Radio-Canada')}</main>`;
+S['building-perf'] = () => header('buildings') + `<main class="page">${bHead()}${bTabs('building-analytics',`<div class="subtabs"><a class="tab" href="#building-analytics">Building maintenance</a><a class="tab on" href="#building-perf">Building performance</a></div>`)}${perfEmpty(curB().name)}</main>`;
 
 const WO_RAIL = ['search','#General','Status','Priority','Assignee','Supplier (company)','#Time',['Due date','From {date} to {date}'],'Recurrence','Work order duration','#Category','Maintenance category','Asset category'];
 S['building-wo'] = () => {
   const toolbar = `<div class="toolbar"><div class="seg" role="group" aria-label="View"><button class="${state.woView==='list'?'on':''}" data-view="list" aria-label="List view">${ic('list',18)}</button><button class="${state.woView==='cards'?'on':''}" data-view="cards" aria-label="Card view">${ic('grid',18)}</button></div><a class="btn btn-primary" href="#calendar">${ic('cal',16)} Schedule work order in calendar view</a></div>`;
-  const rows = Array.from({length:10},(_,i)=>`<tr class="link" data-go="wo"><td>${i?'Work order name':'Toit des Studios'}</td><td>Annual</td><td class="num">07 Aug 2022</td><td>Low</td><td>${chip('In progress')}</td></tr>`).join('');
+  const rows = Array.from({length:10},(_,i)=>`<tr class="link" data-go="${woHref(i||state.building?woName('bwo-table'+bKey(),i):'Toit des Studios','In progress').slice(1)}"><td>${i||state.building?woName('bwo-table'+bKey(),i):'Toit des Studios'}</td><td>Annual</td><td class="num">07 Aug 2022</td><td>Low</td><td>${chip('In progress')}</td></tr>`).join('');
   const list = `<section class="card" style="overflow:hidden"><div class="table-wrap"><table class="${state.dense?'dense':''}"><thead><tr><th>Name</th><th>Recurrence</th><th>Due date</th><th>Priority</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
    <div class="tfoot"><label class="switch"><input type="checkbox" id="dense" ${state.dense?'checked':''}>Dense</label><div class="pg num"><span>Rows per page: <b>10</b> ${ic('chev',14)}</span><span>1–10 of 11</span><span style="display:flex;gap:8px;color:var(--fg-3)">${ic('chevL',18)}<span style="color:var(--fg)">${ic('chevR',18)}</span></span></div></div></section>`;
-  return header('buildings') + `<main class="page">${bHead()}${bTabs('building-wo')}<div class="split">${filterRail(WO_RAIL)}<div>${toolbar}${state.woView==='list'?list:woBoard('bwo',[8,6,4,2,1])}</div></div></main>`;
+  return header('buildings') + `<main class="page">${bHead()}${bTabs('building-wo')}<div class="split">${filterRail(WO_RAIL)}<div>${toolbar}${state.woView==='list'?list:woBoard('bwo'+bKey(),[8,6,4,2,1])}</div></div></main>`;
 };
 S['building-assets'] = () => {
   const wings=['Wing name A','Wing name B','Wing name C','Wing name D','Wing name E'], floors=['Floor 1','Floor 2','Floor 3','Floor 4','Floor 5','Floor 6','Floor 7','Floor 8','Floor 9','Floor 10','Floor 11','Rooftop'];
   const sub = `<div class="subtabs">${wings.map(w=>`<button class="tab ${state.wing===w?'on':''}" data-wing="${w}">${w}</button>`).join('')}</div><div class="subtabs deep">${floors.map(f=>`<button class="tab ${state.floor===f?'on':''}" data-floor="${f}">${f}</button>`).join('')}</div>`;
-  const a = (i) => { const solar=i===9, par=[7,15].includes(i)||i===13; return `<a class="asset" href="${solar?'#asset':'#asset'}"><span class="thumb" ${solar?'style="background:linear-gradient(135deg,#9CC4E8 0 35%,#1E3A5F 35% 100%)"':''}>${solar?'':ic('img',18)}</span><span class="info"><b>${solar?'Panneaux solaires':'Asset name'}</b><span>Domain / Type</span></span>${par?`<span class="par">${ic('tree',18)}</span><span class="tip"><b>Parent asset</b><br><span style="color:var(--fg-2)">{Parent asset name}</span></span>`:''}</a>`; };
-  const rooms=['Meeting room Mount Fuji','Meeting room Mount Royal','Room 1.1','Room 1.2','Room 2.1','Room 2.2','Room 3.3'];
+  const a = (x) => { const solar=!!x.solar; return `<a class="asset${x.parent?' has-par':''}" href="#asset"><span class="thumb" ${solar?'style="background:linear-gradient(135deg,#9CC4E8 0 35%,#1E3A5F 35% 100%)"':''}>${solar?'':ic('img',18)}</span><span class="info"><b title="${x.name}">${x.name}</b><span>${x.domain} / ${x.type}</span></span>${x.parent?`<span class="par">${ic('tree',18)}</span><span class="tip"><b>Parent asset</b><br><span style="color:var(--fg-2)">${x.parent}</span></span>`:''}</a>`; };
+  const rooms=['Kitchen','Meeting room Mount Fuji','Meeting room Mount Royal','Room 1.1','Room 1.2','Room 2.1','Room 2.2','Room 3.3'];
+  const all = rooms.flatMap(r=>roomAssets(state.wing,state.floor,r));
+  const uniq = (f,sort) => { const v=[...new Set(all.map(f))]; return sort?v.sort(sort):v.sort((x,y)=>String(x).localeCompare(String(y),'fr')); };
+  const room = (r) => { const list=roomAssets(state.wing,state.floor,r), k='k-'+r, showAll=state.open['all-'+k], max=20;
+    const shown = showAll||list.length<=max ? list : list.slice(0,max);
+    const more = list.length>max ? `<button class="show-all" data-acc="all-${k}" aria-expanded="${!!showAll}">${showAll?`Show fewer assets in ${r}`:`Show all ${list.length} assets in ${r}`}</button>` : '';
+    return acc(k,r,`<div class="asset-grid">${shown.map(a).join('')}${more}</div>`,{open:r==='Kitchen'}); };
   return header('buildings') + `<main class="page">${bHead()}${bTabs('building-assets',sub)}
-   <div class="split">${filterRail(['search','#General',{toggle:'Has open work order'},'Brand','Model','Installation date','#Category','Asset category',['Asset type','',true]])}
-   <div>${acc('k-kitchen','Kitchen',`<div class="asset-grid">${Array.from({length:20},(_,i)=>a(i)).join('')}<button class="show-all" data-act="toast" data-msg="Showing all 132 assets in Kitchen">Show all 132 assets in Kitchen</button></div>`,{open:true})}
-   ${rooms.map(r=>acc('k-'+r,r,`<div class="asset-grid">${Array.from({length:6},(_,i)=>a(i)).join('')}</div>`)).join('')}</div></div></main>`;
+   <div class="split">${filterRail(['search','#General',{toggle:'Has open work order'},['Brand','','',uniq(x=>x.brand)],['Model','','',uniq(x=>x.model)],['Installation date','','',uniq(x=>x.year,(p,q)=>q-p)],'#Category',['Asset category','','',uniq(x=>x.domain)],['Asset type','',true,uniq(x=>x.type)]])}
+   <div>${rooms.map(room).join('')}</div></div></main>`;
 };
 
 /* work order detail */
 S.wo = () => {
-  const grp = (key,title,tasks,done) => `<div class="grp"><div class="grp-h"><b>${title}</b>${done?`<span style="color:var(--green)">${ic('check',22)}</span>`:`<button class="btn btn-primary" data-act="checklist">Start working</button>`}</div>${tasks.map((t,i)=>`<label class="task"><input type="checkbox" data-check="${key}:${i}" ${state.checks[key][i]?'checked':''}><span>${t}</span></label>`).join('')}</div>`;
-  return header('buildings') + `<main class="page">${pageHead('Toit des Studios',{back:'building-wo',extra:`<button class="chip ${STATUS[state.woStatus]}" style="height:30px;padding:0 10px;font-size:13px" data-pop="status">${state.woStatus} ${ic('chev',14)}</button>`})}
+  const d=woDetail(state.woName), fr=isFr(d.name), last=d.groups.length-1;
+  state.checks=d.checks; state.notes=d.notes;
+  const taskText = (t) => t.replace(/\s*\[[^\]]+\]$/,'');
+  const assetLink = (t) => /Panneaux solaires/.test(t) ? `<a href="#asset" style="color:inherit">${t}</a>` : t;
+  const grp = (g,gi) => { const done=d.checks[gi].every(Boolean); return `<div class="grp"><div class="grp-h"><b>${gi===last?g.title:assetLink(g.title)}</b>${done?`<span style="color:var(--green)">${ic('check',22)}</span>`:`<button class="btn btn-primary" data-act="checklist" data-grp="${gi}">${fr?'Commencer':'Start working'}</button>`}</div>${g.tasks.map((t,i)=>`<label class="task"><input type="checkbox" data-check="${gi}:${i}" ${d.checks[gi][i]?'checked':''}><span>${taskText(t)}</span></label>`).join('')}</div>`; };
+  return header('buildings') + `<main class="page">${pageHead(d.name,{back:'building-wo',more:false,extra:`<button class="chip ${STATUS[d.status]}" style="height:30px;padding:0 10px;font-size:13px" data-pop="status">${d.status} ${ic('chev',14)}</button>`})}
   <div class="tri"><div class="col" style="gap:16px">
-    <p style="margin:0">Little description of the work order.</p><div class="imgs"><span class="ph-img">${ic('img',18)}</span><span class="ph-img">${ic('img',18)}</span></div>
-    <div class="kv"><div><b>Recurrence:</b> Annual</div><div><b>Priority:</b> High</div><div><b>Maintenance category:</b> {category} / {Type}</div><div><b>Estimated duration:</b> 1 day</div><div><b>Due date:</b> Dec 11, 2022 <a href="#calendar" style="font-weight:700;font-size:13px;margin-left:6px">Change</a></div><div><b>Assigned to:</b></div></div>
-    ${personCard()}</div>
+    <p style="margin:0">${d.desc}</p><div class="imgs"><span class="ph-img">${ic('img',18)}</span><span class="ph-img">${ic('img',18)}</span></div>
+    <div class="kv"><div><b>Recurrence:</b> ${d.rec}</div><div><b>Priority:</b> ${d.prio}</div><div><b>Maintenance category:</b> ${d.cat} / ${d.type}</div><div><b>Estimated duration:</b> ${d.dur}</div><div><b>Due date:</b> ${d.due} <a href="#calendar" style="font-weight:700;font-size:13px;margin-left:6px">Change</a></div><div><b>Assigned to:</b></div></div>
+    ${personCard(d.who)}</div>
    <section class="card checklist"><div style="padding:24px 20px"><h3 style="font-size:18px">Checklist</h3><p style="margin:4px 0 0;color:var(--fg-2)">Complete all the tasks in the checklist</p></div>
-    ${grp('a','<a href="#asset" style="color:inherit">Panneaux solaires</a>',['Task 1 Occaecati est et illo quibusdam accusamus','Add SCSS and JS files if required','Stakeholder Meeting','Task 4 Occaecati est et illo quibusdam accusamus','Task 5 Take temperature of something'])}
-    ${grp('b','Asset name 2',['Task 1 Occaecati est et illo quibusdam accusamus','Completed task','Task 4 Occaecati est et illo quibusdam accusamus'])}
-    ${grp('c','Other tasks',['Completed task','Completed task'],state.checks.c.every(Boolean))}</section>
+    ${d.groups.map(grp).join('')}</section>
    ${notesCard()}</div></main>`;
 };
 function notesCard(){
@@ -702,10 +937,11 @@ function notesCard(){
 
 /* asset detail */
 S.asset = () => {
+  state.notes = state.assetNotes;
   const items=[['In progress','Toit des Studios','Annual • 2022'],['Completed','Sweep snow','Every 2 weeks • 2022'],['Completed','Adjust inclination','Bi-annual • 2022'],['Completed','Adjust inclination','Bi-annual • 2022']];
   const tabs=['Work orders','Documents (5)','Checklists','Sub-assets'];
   let body='';
-  if(state.assetTab==='Work orders') body=items.map(([s,t,m],i)=>`<a class="wo-item" href="${i===0?'#wo':'#wo'}" style="color:inherit"><span>${chip(s)}</span><b style="font-weight:500">${t}</b><span>Description Cupcake ipsum dolor sit amet sweet roll brownie powder.</span><small>${m}</small></a>`).join('')+`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><a class="btn btn-primary" href="#new-wo">${ic('plus',18)} New work order</a><a href="#building-wo" style="font-weight:700">View all work orders</a></div>`;
+  if(state.assetTab==='Work orders') body=items.map(([s,t,m],i)=>`<a class="wo-item" href="${woHref(t,s)}" style="color:inherit"><span>${chip(s)}</span><b style="font-weight:500">${t}</b><span>Description Cupcake ipsum dolor sit amet sweet roll brownie powder.</span><small>${m}</small></a>`).join('')+`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><a class="btn btn-primary" href="#new-wo">${ic('plus',18)} New work order</a><a href="#building-wo" style="font-weight:700">View all work orders</a></div>`;
   else if(state.assetTab==='Documents (5)') body=['Installation manual.pdf','Warranty certificate.pdf','Wiring diagram.pdf','Inspection report 2022.pdf','Supplier invoice.pdf'].map(d=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--line)"><span>${d}</span><small style="color:var(--fg-2)">PDF</small></div>`).join('');
   else if(state.assetTab==='Checklists') body=`<b>Annual</b>${['Clean panel surface','Check inverter output','Inspect mounting brackets','Take temperature of panels'].map(t=>`<label class="task"><input type="checkbox"><span>${t}</span></label>`).join('')}`;
   else body=`<div class="asset-grid" style="grid-template-columns:1fr">${['Inverter A','Inverter B','Battery bank'].map(n=>`<a class="asset" href="#asset"><span class="thumb">${ic('img',18)}</span><span class="info"><b>${n}</b><span>Electrical / Energy storage</span></span></a>`).join('')}</div>`;
@@ -716,30 +952,31 @@ S.asset = () => {
     <div style="display:flex;gap:8px"><span class="btn btn-soft btn-sm" style="background:var(--field);border-radius:16px">Category</span><span class="btn btn-soft btn-sm" style="background:var(--field);border-radius:16px">Type</span></div>
     <div class="sec-label">Identifier</div><div class="kv"><div><b>Brand:</b> Bousquet Technologies</div><div><b>Model:</b> HDGH-65-SS-O-4-HTM-WO</div><div><b>Installation date:</b> {date}</div></div>
     <div class="sec-label">Spécifications</div><div class="kv num"><div><b>Air flow:</b> 4990@12040 cfm</div><div><b>Run load amperage:</b> 1.6 A</div><div><b>Engine power:</b> 190 kW</div><div><b>Voltage phase:</b> 3 Knot</div><div><b>Voltage frequency:</b> 60 Hz</div><div><b>Voltage:</b> 575 V</div><div><b>Air flow:</b> 2355@5682 L/s</div></div>
-    <div class="sec-label">Contact</div><div class="col" style="gap:12px">${personCard()}${personCard()}</div></div>
+    <div class="sec-label">Contact</div><div class="col" style="gap:12px">${personCard(peopleAt('Shepard')[0])}${personCard(peopleAt('Toitures Mont-Royal')[0])}</div></div>
    <section class="card" style="overflow:hidden"><div class="tabs" style="background:var(--field);border-radius:0">${tabs.map(t=>`<button class="tab ${state.assetTab===t?'on':''}" data-atab="${t}" style="font-size:14px">${t}</button>`).join('')}</div><div style="padding:20px;display:grid;gap:8px">${body}</div></section>
    ${notesCard()}</div></main>`;
 };
 
 /* calendar */
+const EV_STATUS = {red:'Overdue',amber:'On hold',ghost:'Planned','':'Ready'};
 const EVENTS = {3:[['red'],['amber'],['ghost'],12],4:[['ghost'],['ghost'],['ghost'],['ghost']],5:[['ghost'],['ghost'],['ghost'],4],6:[['amber'],['ghost'],['ghost']],7:[['ghost'],['ghost']],10:[['ghost'],['ghost']],11:[[''],['ghost'],['ghost']],12:[[''],[''],[''],7],13:[[''],[''],[''],['']],17:[[''],['']],18:[[''],[''],[''],4],19:[['']],20:[[''],['']],21:[['']]};
 S.calendar = () => {
   const y=state.year,m=state.month, first=new Date(y,m,1).getDay(), dim=new Date(y,m+1,0).getDate(), prevDim=new Date(y,m,0).getDate();
   const isDec22 = y===2022&&m===11;
   const cells=[]; const total=Math.ceil((first+dim)/7)*7;
   for(let i=0;i<total;i++){const d=i-first+1; const inM=d>=1&&d<=dim; const label=inM?d:(d<1?prevDim+d:d-dim);
-    let evs=''; if(inM&&isDec22&&EVENTS[d]) evs=EVENTS[d].map(e=>typeof e==='number'?`<div class="morel">+${e} more</div>`:`<button class="ev ${e[0]}" data-ev="${d}">Name of work order</button>`).join('');
-    const key=`${y}-${m}-${d}`; if(inM&&state.placed[key]) evs+=state.placed[key].map(()=>`<button class="ev new" data-ev="${d}">Name of work order</button>`).join('');
+    let evs=''; if(inM&&isDec22&&EVENTS[d]) evs=EVENTS[d].map((e,j)=>typeof e==='number'?`<div class="morel">+${e} more</div>`:`<button class="ev ${e[0]}" data-ev="${d}" data-st="${EV_STATUS[e[0]]}" data-name="${woName('cal|'+d,j)}">${woName('cal|'+d,j)}</button>`).join('');
+    const key=`${y}-${m}-${d}`; if(inM&&state.placed[key]) evs+=state.placed[key].map(id=>{const n=(state.queue0.find(q=>q.id===id)||{name:woName('placed|'+key)}).name;return `<button class="ev new" data-ev="${d}" data-st="Planned" data-name="${n}">${n}</button>`;}).join('');
     const off = isDec22&&[25,26].includes(d);
     cells.push(`<div class="day ${inM?'':'out'} ${isDec22&&d===5?'today':''} ${off?'off':''}" ${inM&&!off?`data-day="${key}"`:''}><div class="dn"><span>${label}</span></div>${evs}</div>`);}
   const prev=[['Overdue'],['Overdue'],['On hold'],['On hold'],['On hold']];
-  const qi=(s,id)=>`<div class="qi" draggable="true" ${id?`data-q="${id}"`:''}>${chip(s)}<b>8h</b><span>Name of work order</span></div>`;
+  const qi=(s,id,name)=>`<div class="qi" draggable="true" ${id?`data-q="${id}"`:''}>${chip(s)}<b>8h</b><span>${name}</span></div>`;
   return header('analytics') + `<main class="page">${pageHead('Schedule work order in calendar',{back:'building-wo'})}
   <div class="cal-layout"><div class="col" style="gap:16px">
-   <label class="field filled"><span class="fl">Buildings</span><select id="cal-bldg" aria-label="Building"><option>Maison de Radio-Canada</option><option>Toit des Studios</option></select>${ic('chev',18)}</label>
-   ${acc('cprev','Work orders from previous months',`<div class="queue">${prev.map(([s])=>qi(s)).join('')}</div>`,{open:true})}
-   ${acc('cdec','Work orders planned for December 2022',`<div class="queue">${state.queue.length?state.queue.map(q=>qi(q.status,q.id)).join(''):'<p style="color:var(--fg-2);margin:0">All planned work orders are on the calendar.</p>'}</div><p style="font-size:12px;color:var(--fg-2);margin:12px 0 0">Drag a work order onto a day to schedule it.</p>`,{open:true})}
-   ${acc('cjan','Work orders planned for January 2023',`<div class="queue">${qi('Planned')}${qi('Planned')}</div>`)}
+   <label class="field filled"><span class="fl">Buildings</span><select id="cal-bldg" aria-label="Building">${BUILDINGS.map((b,i)=>`<option ${i===state.building?'selected':''}>${b}</option>`).join('')}</select>${ic('chev',18)}</label>
+   ${acc('cprev','Work orders from previous months',`<div class="queue">${prev.map(([s],i)=>qi(s,'',woName('prev',i))).join('')}</div>`,{open:true})}
+   ${acc('cdec','Work orders planned for December 2022',`<div class="queue">${state.queue.length?state.queue.map(q=>qi(q.status,q.id,q.name)).join(''):'<p style="color:var(--fg-2);margin:0">All planned work orders are on the calendar.</p>'}</div><p style="font-size:12px;color:var(--fg-2);margin:12px 0 0">Drag a work order onto a day to schedule it.</p>`,{open:true})}
+   ${acc('cjan','Work orders planned for January 2023',`<div class="queue">${qi('Planned','',woName('jan',0))}${qi('Planned','',woName('jan',1))}</div>`)}
   </div>
   <section class="card" style="overflow:hidden"><div class="cal-h"><div class="seg2" role="group" aria-label="Calendar range">${['Month','Week','Day'].map(v=>`<button class="${state.calView===v?'on':''}" data-calv="${v}">${v}</button>`).join('')}</div>
     <div style="display:flex;align-items:center;gap:8px"><button class="icon-btn" data-mon="-1" aria-label="Previous month">${ic('chevL',20)}</button><h3>${['January','February','March','April','May','June','July','August','September','October','November','December'][m]} ${y}</h3><button class="icon-btn" data-mon="1" aria-label="Next month">${ic('chevR',20)}</button></div>
@@ -749,10 +986,10 @@ S.calendar = () => {
 
 /* contacts */
 S.contacts = () => header('contacts') + `<main class="page">${pageHead('Contacts')}
- <div class="split">${filterRail(['search','#General',['Buildings','All buildings'],'Type','Supplier (company)','Title','Discipline'])}
- <div class="col" style="gap:32px"><div><h2 style="font-size:22px;margin-bottom:16px">Internal</h2><div class="cc-grid">${contactCard().repeat(3)}</div></div>
+ <div class="split">${filterRail(['search','#General',['Buildings','All buildings','',['All buildings',...BUILDINGS]],'Type','Supplier (company)','Title','Discipline'])}
+ <div class="col" style="gap:32px"><div><h2 style="font-size:22px;margin-bottom:16px">Internal</h2><div class="cc-grid">${INTERNAL.slice(0,3).map(p=>contactCard(p)).join('')}</div></div>
  <div class="col" style="gap:20px"><h2 style="font-size:22px">External</h2>
-  ${[['Company name A',3],['Company name B',2],['Company name C',5]].map(([c,n])=>`<div><h3 style="font-size:16px;color:var(--fg-2);margin-bottom:12px">${c}</h3><div class="cc-grid">${contactCard().repeat(n)}</div></div>`).join('')}</div></div></div></main>`;
+  ${[['Shepard',3],['Mécanique Laurentide',2],['Plomberie Saint-Laurent',5]].map(([c,n])=>`<div><h3 style="font-size:16px;color:var(--fg-2);margin-bottom:12px">${c}</h3><div class="cc-grid">${peopleAt(c).slice(0,n).map(p=>contactCard(p)).join('')}</div></div>`).join('')}</div></div></div></main>`;
 
 /* forms */
 const ff = (label,val='',{select,sub,ph,area,opts}={}) => { const id='i-'+Math.random().toString(36).slice(2,8);
@@ -770,7 +1007,7 @@ function formPage(title,secs,aside,cta){
 const uploadBox = `<div class="card" style="padding:24px;display:grid;gap:12px;justify-items:center"><div class="drop-zone" style="width:120px;height:90px" data-act="toast" data-msg="File picker isn't wired up in this prototype">${ic('upload',30)}Upload file</div><small style="color:var(--fg-2);text-align:center;font-size:11px">Allowed *.jpeg, *.jpg, *.png, *.gif<br>Max size of 3.1 MB</small></div>`;
 const checklistBox = `<div class="fbox"><div style="max-width:260px">${ff('Type of checklist','Annual',{select:true,opts:['Monthly','Bi-annual']})}</div>${['Brownie lollipop I love croissant pudding chocolate bar','Cake biscuit I love chocolate cake carrot cake bonbon','Sweet sweet roll tootsie roll powder dragée jujubes dessert cheesecake bonbon','I love sweet roll toffee cake bear claw jelly-o'].map(t=>`<div class="task-row"><span>${t}</span><span style="color:var(--fg-2)">${ic('dots',18)}</span></div>`).join('')}${addLink('Add a task')}</div>`;
 S['new-asset'] = () => formPage('New asset',[
-  {id:'s-general',nav:'General info*',title:'General info*',sub:'These are mandatory info to create an asset',body:`<div class="fbox">${ff('Asset name','Solar battery')}${ff('Asset description (optional)','',{area:true})}<div class="frow">${ff('Building','Maison de Radio-Canada',{select:true})}${ff('Electrical equipment (Category)','Electrical',{select:true})}${ff('Wing','Studios',{select:true,sub:true})}${ff('Energy storage (Type)','Battery',{select:true,sub:true})}${ff('Floor','Rooftop',{select:true,sub:true})}</div></div>`},
+  {id:'s-general',nav:'General info*',title:'General info*',sub:'These are mandatory info to create an asset',body:`<div class="fbox">${ff('Asset name','Solar battery')}${ff('Asset description (optional)','',{area:true})}<div class="frow">${ff('Building',curB().name,{select:true,opts:BUILDINGS.filter(b=>b!==curB().name)})}${ff('Electrical equipment (Category)','Electrical',{select:true})}${ff('Wing','Studios',{select:true,sub:true})}${ff('Energy storage (Type)','Battery',{select:true,sub:true})}${ff('Floor','Rooftop',{select:true,sub:true})}</div></div>`},
   {id:'s-ident',nav:'Identifiers',title:'Identifiers',sub:'These data help you identify your asset',body:`<div class="fbox">${['Brand','Model','Installation date'].map(l=>`<div class="frow">${ff(l,'',{select:true})}${ff('Value')}</div>`).join('')}</div>${addLink('Add another identifier')}`},
   {id:'s-spec',nav:'Specifications',title:'Specifications',sub:'These data are used to calculate your building’s performance',body:`<div class="fbox"><div class="frow three">${ff('Name','Voltage',{select:true})}${ff('Value','24')}${ff('Unit','V',{select:true})}</div></div>${addLink('Add another specification')}`},
   {id:'s-docs',nav:'Documents',title:'Documents',body:`<div class="drop-zone" style="min-height:58px" data-act="toast" data-msg="File picker isn't wired up in this prototype">${ic('upload',26)}Upload file</div>${addLink('Add another document')}`},
@@ -778,7 +1015,7 @@ S['new-asset'] = () => formPage('New asset',[
   {id:'s-check',nav:'Checklists',title:'Checklists',body:checklistBox+addLink('Add another checklist')}
  ],uploadBox,'Create asset');
 S['new-wo'] = () => formPage('New work order',[
-  {id:'w-general',nav:'General info*',title:'General info*',sub:'These are mandatory info to create a work order',body:`<div class="fbox">${ff('Work order name','Toit des Studios')}${ff('Description (optional)','',{area:true})}<div class="frow">${ff('Building','Maison de Radio-Canada',{select:true})}${ff('Asset','Panneaux solaires',{select:true})}${ff('Wing','Studios',{select:true,sub:true})}${ff('Maintenance category','',{select:true})}${ff('Floor','Rooftop',{select:true,sub:true})}${ff('Priority','Low',{select:true,opts:['Medium','High','None']})}</div></div>`},
+  {id:'w-general',nav:'General info*',title:'General info*',sub:'These are mandatory info to create a work order',body:`<div class="fbox">${ff('Work order name','Toit des Studios')}${ff('Description (optional)','',{area:true})}<div class="frow">${ff('Building',curB().name,{select:true,opts:BUILDINGS.filter(b=>b!==curB().name)})}${ff('Asset','Panneaux solaires',{select:true})}${ff('Wing','Studios',{select:true,sub:true})}${ff('Maintenance category','',{select:true})}${ff('Floor','Rooftop',{select:true,sub:true})}${ff('Priority','Low',{select:true,opts:['Medium','High','None']})}</div></div>`},
   {id:'w-sched',nav:'Schedule',title:'Schedule',sub:'Set when this work order is due and how often it repeats',body:`<div class="fbox"><div class="frow">${ff('Due date','Dec 11, 2022')}${ff('Recurrence','Annual',{select:true,opts:['Monthly','Bi-annual','Every 2 weeks']})}${ff('Estimated duration','1 day',{select:true,opts:['4 hours','2 days']})}${ff('Status','Planned',{select:true,opts:['Ready','In progress','On hold']})}</div></div>`},
   {id:'w-assign',nav:'Assignment',title:'Assignment',body:`<div class="fbox"><div class="frow">${ff('Supplier (company)','Shepard',{select:true})}${ff('Assignee','Cristopher Cardenas',{select:true})}</div></div>${addLink('Add another assignee')}`},
   {id:'w-check',nav:'Checklists',title:'Checklists',body:checklistBox+addLink('Add another checklist')},
@@ -798,8 +1035,9 @@ S.profile = () => header('') + `<main class="page"><div class="two" style="grid-
 /* ---------- router ---------- */
 const ROUTES = Object.keys(S);
 function render(){
-  let r = location.hash.slice(1) || 'login';
+  let [r,arg,stArg] = (location.hash.slice(1) || 'login').split('/');
   if(!ROUTES.includes(r)) r='login';
+  if(r==='wo'){ state.woName = WO_BY_SLUG[arg] || 'Toit des Studios'; const st=STATUS_BY_SLUG[stArg]; const d=woDetail(state.woName); if(st && !d.statusTouched) setWoStatus(d,st); }
   if(r!=='login' && !state.authed){ state.authed=true; }
   closePop();
   document.getElementById('app').innerHTML = S[r]();
@@ -860,6 +1098,7 @@ function armCharts(route){
   });
 }
 const go = (r) => { if(location.hash==='#'+r) render(); else location.hash=r; };
+const goWo = (name,st) => go(woHref(name,st).slice(1));
 
 /* ---------- popovers ---------- */
 const layer = document.getElementById('layer');
@@ -867,8 +1106,8 @@ function closePop(){ layer.innerHTML=''; }
 function openPop(kind,anchor){
   const r = anchor.getBoundingClientRect();
   const menus = {
-    logo:`<div class="pop-head"><b>Switch view</b><span>Prototype roles</span></div><button class="mi" data-go="analytics">Portfolio manager<small>All buildings, analytics home</small></button><button class="mi" data-go="building">Only one building<small>Lands on Maison de Radio-Canada</small></button><button class="mi" data-go="tech">Technician<small>Only my work orders</small></button>`,
-    buildings:`<button class="mi" data-go="building">${ic('bldg',18)} Maison de Radio-Canada</button><button class="mi" data-act="toast" data-msg="Only Maison de Radio-Canada is in this prototype">${ic('bldg',18)} Toit des Studios</button>`,
+    logo:`<div class="pop-head"><b>Switch view</b><span>Prototype roles</span></div><button class="mi" data-go="analytics">Portfolio manager<small>All buildings, analytics home</small></button><button class="mi" data-bldg="0">Only one building<small>Lands on Maison de Radio-Canada</small></button><button class="mi" data-go="tech">Technician<small>Only my work orders</small></button>`,
+    buildings:BLDGS.map((b,i)=>`<button class="mi" data-bldg="${i}">${ic('bldg',18)} ${b.name}</button>`).join(''),
     account:`<div class="pop-head"><b>Hudson Alvarez</b><span>design@email.com</span></div><hr><button class="mi" data-go="profile">Profile</button><button class="mi" data-go="mywo">My work orders</button><hr><button class="mi danger" data-act="logout">${ic('logout',18)} Logout</button>`,
     more:`<button class="mi" data-go="new-asset">${ic('plus',18)} Create new asset</button><button class="mi" data-go="new-wo">${ic('plus',18)} Create new work order</button>`,
     status:['Planned','Ready','In progress','On hold','Overdue','Completed'].map(s=>`<button class="mi" data-status="${s}">${chip(s)}</button>`).join('')
@@ -879,20 +1118,22 @@ function openPop(kind,anchor){
   p.style.left = Math.max(12,left)+'px'; p.style.top = (r.bottom+8)+'px';
 }
 function toast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; t.setAttribute('role','status'); document.body.appendChild(t); setTimeout(()=>t.remove(),2200); }
-function checklistModal(){
-  const tasks=['Task 1 Occaecati est et illo quibusdam accusamus','Add SCSS and JS files if required','Stakeholder Meeting','Task 4 Occaecati est et illo quibusdam accusamus','Task 5 Take temperature of something'];
-  layer.innerHTML = `<div class="scrim" data-close="1"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mh"><h3 id="mh">Checklist</h3><b>Panneaux solaires</b>
-   ${tasks.map((t,i)=>`<label class="task" style="color:var(--fg)"><input type="checkbox" data-mcheck="${i}" ${state.modalChecks[i]?'checked':''}><span>${t}</span></label>${i===4?`<div class="frow" style="padding-left:32px;max-width:340px">${ff('Temperature','16')}${ff('Unit','Celsius',{select:true,opts:['Fahrenheit']})}</div>`:''}`).join('')}
+function checklistModal(gi=0){
+  const d=woDetail(state.woName), g=d.groups[gi];
+  state.modalGrp=gi; state.modalChecks=[...d.checks[gi]];
+  layer.innerHTML = `<div class="scrim" data-close="1"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mh"><h3 id="mh">Checklist</h3><b>${g.title}</b>
+   ${g.tasks.map((t,i)=>{ const unit=(t.match(/\[([^\]]+)\]$/)||[])[1]; return `<label class="task" style="color:var(--fg)"><input type="checkbox" data-mcheck="${i}" ${state.modalChecks[i]?'checked':''}><span>${t.replace(/\s*\[[^\]]+\]$/,'')}</span></label>${unit?`<div class="frow" style="padding-left:32px;max-width:340px">${ff('Reading','')}${ff('Unit',unit,{select:true,opts:[]})}</div>`:''}`; }).join('')}
    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px"><button class="btn btn-ghost-red" data-close="1">Don't save</button><button class="btn btn-primary btn-lg" data-act="saveprog">Save progress</button></div></div></div>`;
 }
 
 /* ---------- events ---------- */
 document.addEventListener('click',(e)=>{
-  const t = e.target.closest('[data-pop],[data-go],[data-act],[data-acc],[data-view],[data-wing],[data-floor],[data-atab],[data-pin],[data-calv],[data-mon],[data-status],[data-copy],[data-close],[data-sec]');
+  const t = e.target.closest('[data-pop],[data-bldg],[data-go],[data-act],[data-acc],[data-view],[data-wing],[data-floor],[data-atab],[data-pin],[data-calv],[data-mon],[data-status],[data-copy],[data-close],[data-sec]');
   if(!t){ if(!e.target.closest('.pop')) closePop(); return; }
   if(t.dataset.close && e.target!==t && !e.target.closest('button[data-close]')) return;
   const d=t.dataset;
   if(d.pop){ e.preventDefault(); const open=layer.querySelector('.pop'); if(open&&layer.dataset.k===d.pop){closePop();layer.dataset.k='';return;} layer.dataset.k=d.pop; openPop(d.pop,t); return; }
+  if(d.bldg!==undefined){ e.preventDefault(); closePop(); state.building=+d.bldg; state.wing='Wing name A'; state.floor='Floor 1'; go('building'); return; }
   if(d.go){ e.preventDefault(); closePop(); go(d.go); return; }
   if(d.close){ closePop(); return; }
   if(d.acc){ const cur=t.getAttribute('aria-expanded')==='true'; state.open[d.acc]=!cur; render(); return; }
@@ -902,7 +1143,7 @@ document.addEventListener('click',(e)=>{
   if(d.atab){ state.assetTab=d.atab; render(); return; }
   if(d.calv){ state.calView=d.calv; if(d.calv!=='Month') toast(`${d.calv} view isn't designed yet, showing Month`); state.calView='Month'; render(); return; }
   if(d.mon){ state.month+=+d.mon; if(state.month<0){state.month=11;state.year--;} if(state.month>11){state.month=0;state.year++;} render(); return; }
-  if(d.status){ state.woStatus=d.status; closePop(); render(); toast(`Status changed to ${d.status}`); return; }
+  if(d.status){ const wd=woDetail(state.woName); setWoStatus(wd,d.status); wd.statusTouched=true; closePop(); render(); toast(`Status changed to ${d.status}`); return; }
   if(d.pin!==undefined){ const n=state.notes.splice(+d.pin,1)[0]; state.notes.forEach(x=>x.pinned=false); n.pinned=true; state.notes.unshift(n); render(); toast('Note pinned'); return; }
   if(d.copy){ e.preventDefault(); const v=d.copy; (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>toast('Copied '+v)).catch(()=>toast(v)); return; }
   if(d.sec){ document.querySelectorAll('.side-nav a').forEach(a=>a.classList.toggle('on',a===t)); e.preventDefault(); document.getElementById(d.sec).scrollIntoView({behavior:'smooth'}); return; }
@@ -915,17 +1156,17 @@ document.addEventListener('click',(e)=>{
     case 'reset': document.querySelectorAll('.filters select').forEach(s=>s.selectedIndex=0); document.querySelectorAll('.filters input').forEach(i=>{i.value='';i.checked=false;}); toast('Filters reset'); break;
     case 'apply': toast('Filters applied'); break;
     case 'toast': e.preventDefault(); toast(d.msg); break;
-    case 'checklist': checklistModal(); break;
-    case 'saveprog': state.checks.a=[...state.modalChecks]; closePop(); render(); toast('Progress saved'); break;
-    case 'post': { const v=document.getElementById('note-text').value.trim(); if(!v){toast('Write a note first');return;} const pinned=state.notes.filter(n=>n.pinned); const rest=state.notes.filter(n=>!n.pinned); state.notes=[...pinned,{text:v,who:'Hudson Alvarez',when:'Just now'},...rest]; render(); toast('Note posted'); break; }
+    case 'checklist': checklistModal(+d.grp||0); break;
+    case 'saveprog': { const wd=woDetail(state.woName); wd.checks[state.modalGrp]=[...state.modalChecks]; wd.checksTouched=true; } closePop(); render(); toast('Progress saved'); break;
+    case 'post': { const v=document.getElementById('note-text').value.trim(); if(!v){toast('Write a note first');return;} state.notes.splice(state.notes.filter(n=>n.pinned).length,0,{text:v,who:'Hudson Alvarez',when:'Just now'}); render(); toast('Note posted'); break; }
     case 'today': state.month=11; state.year=2022; render(); break;
     case 'cancel': history.length>1?history.back():go('building'); break;
-    case 'save': { const f=document.getElementById('the-form'); const name=f.querySelector('input'); if(name&&!name.value.trim()){ name.focus(); toast('Add a name before saving'); return;} toast(d.msg.replace(' done',' saved').replace('Create ','')+''); setTimeout(()=>go(location.hash==='#new-wo'?'wo':'asset'),700); break; }
+    case 'save': { const f=document.getElementById('the-form'); const name=f.querySelector('input'); if(name&&!name.value.trim()){ name.focus(); toast('Add a name before saving'); return;} toast(d.msg.replace(' done',' saved').replace('Create ','')+''); setTimeout(()=>location.hash==='#new-wo'?goWo('Toit des Studios'):go('asset'),700); break; }
   }
 });
 document.addEventListener('change',(e)=>{
   const d=e.target.dataset;
-  if(d.check){ const [k,i]=d.check.split(':'); state.checks[k][+i]=e.target.checked; if(k==='c') render(); return; }
+  if(d.check){ const [k,i]=d.check.split(':'); state.checks[+k][+i]=e.target.checked; woDetail(state.woName).checksTouched=true; render(); return; }
   if(d.mcheck!==undefined){ state.modalChecks[+d.mcheck]=e.target.checked; return; }
   if(e.target.id==='dense'){ state.dense=e.target.checked; render(); }
 });
@@ -944,12 +1185,13 @@ document.addEventListener('mouseover',(e)=>{
   const ev=e.target.closest('.ev'); if(!ev){ if(tip){tip.remove();tip=null;} return; }
   if(tip) return; const r=ev.getBoundingClientRect();
   tip=document.createElement('div'); tip.className='ev-tip';
-  tip.innerHTML=`${chip('Ready')}<b>Work order name</b>Little description of the work order (optional)<br>Building: Maison de Radio-Canada<br>Recurrence: Annually<br>Assignee: Cristopher Cardenas<br>Estimated duration: 1 day<br>Due date: 12/${String(ev.dataset.ev).padStart(2,'0')}/2022<br>Priority: High`;
+  const wd=woDetail(ev.dataset.name);
+  tip.innerHTML=`${chip(ev.dataset.st||'Ready')}<b>${wd.name}</b>${wd.desc}<br>Building: ${curB().name}<br>Recurrence: ${wd.rec}<br>Assignee: ${wd.who.name}<br>Estimated duration: ${wd.dur}<br>Due date: 12/${String(ev.dataset.ev).padStart(2,'0')}/2022<br>Priority: ${wd.prio}`;
   document.body.appendChild(tip);
   const left = r.right+10+280>window.innerWidth ? r.left-290 : r.right+10;
   tip.style.left=Math.max(8,left)+'px'; tip.style.top=Math.min(r.top,window.innerHeight-260)+'px';
 });
-document.addEventListener('click',(e)=>{ const ev=e.target.closest('.ev'); if(ev){ if(tip){tip.remove();tip=null;} go('wo'); } });
+document.addEventListener('click',(e)=>{ const ev=e.target.closest('.ev'); if(ev){ if(tip){tip.remove();tip=null;} goWo(ev.dataset.name,ev.dataset.st); } });
 function bindDnD(){
   document.querySelectorAll('.qi[draggable]').forEach(el=>{ el.addEventListener('dragstart',ev=>{ ev.dataTransfer.setData('text/plain',el.dataset.q||''); ev.dataTransfer.effectAllowed='move'; }); });
   document.querySelectorAll('.day[data-day]').forEach(day=>{
