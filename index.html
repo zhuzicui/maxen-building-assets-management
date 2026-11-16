@@ -538,6 +538,79 @@ const WO_NAMES = [
 const woName = (key,i=0) => WO_NAMES[(hashStr(MOCK_SEED+key)+i)%WO_NAMES.length];
 const woPerson = (key) => ASSIGNEES[hashStr(MOCK_SEED+'who'+key)%ASSIGNEES.length];
 
+/* Work order content by title: [maintenance category, type, recurrence, estimated duration, priority, assets, description, checklist, supplier].
+   French titles get French content. A task ending in [unit] asks for a reading in the checklist modal. */
+const WO_SPEC = {
+  'Toit des Studios':['Roofing','Solar','Annual','1 day','High',['Panneaux solaires','Onduleur solaire INV-R01'],'Inspection annuelle de l’installation solaire sur le toit des studios, avant l’hiver.',['Inspecter les fixations et les rails','Vérifier l’absence de fissures sur les modules','Nettoyer la surface des panneaux','Contrôler le serrage des connecteurs','Relever la température des panneaux [°C]'],'Toitures Mont-Royal'],
+  'Inspection annuelle des extincteurs':['Fire safety','Extinguishers','Annual','1 day','Medium',['Extincteur EX-101','Extincteur EX-102'],'Inspection réglementaire de tous les extincteurs portatifs de l’aile, selon la norme NFPA 10.',['Vérifier la pression au manomètre','Inspecter la goupille et le scellé','Contrôler la date d’essai hydrostatique','Apposer l’étiquette d’inspection 2022'],'Vigil Sécurité Incendie'],
+  'Replace AHU-2 filters':['HVAC','Filtration','Every 3 months','4 hours','Medium',['Air handling unit AHU-102'],'Quarterly filter change on AHU-2, which serves the studios on floors 2 to 4.',['Lock out AHU-2 and tag the disconnect','Record pressure drop across the filter bank [Pa]','Remove and bag the old pre-filters and bag filters','Install new MERV 13 filters and check the seals','Restart the unit and record the new pressure drop [Pa]'],'Mécanique Laurentide'],
+  'Nettoyage des conduits de ventilation':['HVAC','Ductwork','Annual','2 days','Low',['Unité de traitement d’air AHU-101','Ventilateur d’extraction EF-103'],'Nettoyage complet du réseau de conduits de l’AHU-1, à faire de nuit pour ne pas déranger les enregistrements.',['Protéger les plafonds et le mobilier','Ouvrir les trappes d’accès','Brosser et aspirer les conduits principaux','Photographier avant et après','Refermer et sceller les trappes'],'Mécanique Laurentide'],
+  'Backflow preventer annual test':['Plumbing','Backflow prevention','Annual','2 hours','High',['Backflow preventer BF-101'],'Annual test required by the City of Montréal. The signed form must be sent within 30 days.',['Notify occupants of the water shut-off','Test differential pressure on check valves 1 and 2 [kPa]','Record the relief valve opening point [kPa]','Fill in the municipal test form','Restore the water supply and check for leaks'],'Plomberie Saint-Laurent'],
+  'Rooftop unit spring start-up':['HVAC','Rooftop units','Annual','1 day','Medium',['Rooftop unit RTU-R01','Rooftop unit RTU-R02'],'Spring start-up of both rooftop units before cooling season.',['Remove the winter covers from the condensers','Check belts and pulley alignment','Measure refrigerant suction pressure [kPa]','Record supply air temperature [°C]','Verify economizer operation'],'Mécanique Laurentide'],
+  'Elevator monthly inspection':['Vertical transport','Elevators','Monthly','3 hours','High',['Elevator EL-1','Elevator EL-2'],'Monthly maintenance visit on the two passenger elevators in the main lobby.',['Test the emergency phone and alarm bell','Check the door reopening device','Inspect cab lighting and fan','Verify levelling at each floor','Sign the elevator logbook'],'Ascenseurs Montcalm'],
+  'Essai de la génératrice d’urgence':['Electrical','Emergency power','Monthly','2 hours','High',['Génératrice GEN-R01','Commutateur de transfert ATS-01'],'Essai mensuel sous charge de la génératrice qui alimente les régies de diffusion.',['Vérifier le niveau de carburant','Démarrer la génératrice sous charge','Relever la tension de sortie [V]','Laisser tourner 30 minutes','Consigner les résultats au registre'],'Shepard'],
+  'Grease interceptor pumping':['Plumbing','Grease interceptor','Every 3 months','3 hours','Medium',['Grease interceptor GI-101'],'Quarterly pump-out of the kitchen grease interceptor, scheduled after the cafeteria closes.',['Ask the kitchen to stop dishwashing','Measure the grease layer before pumping [cm]','Pump out the interceptor','Scrape the baffles and the inlet','Keep the pump-out manifest for the city'],'Plomberie Saint-Laurent'],
+  'Kitchen exhaust hood cleaning':['Kitchen equipment','Exhaust hoods','Bi-annual','1 day','High',['Exhaust hood EH-101','Exhaust fan EF-R01'],'Bi-annual hood and duct degreasing required by the fire code. Overnight job, kitchen closed.',['Cover the cooking equipment','Remove and degrease the filters','Scrape the plenum and the duct','Clean the rooftop exhaust fan','Apply the cleaning certificate sticker'],'Entretien Lumina'],
+  'Boiler combustion analysis':['HVAC','Boilers','Annual','4 hours','Medium',['Boiler B-1','Boiler B-2'],'Annual combustion tune-up on both heating boilers before the heating season peaks.',['Measure flue gas O2 [%]','Record the stack temperature [°C]','Adjust the burner air-fuel ratio','Test the low-water cut-off','Record efficiency in the report'],'Mécanique Laurentide'],
+  'Cooling tower water treatment':['HVAC','Cooling tower','Monthly','2 hours','High',['Cooling tower CT-R01'],'Monthly Legionella control required by the RBQ for cooling towers.',['Collect a water sample for Legionella analysis','Check the biocide pump and drum level','Measure conductivity [µS/cm]','Inspect the drift eliminators','Upload results to the RBQ register'],'Mécanique Laurentide'],
+  'Emergency lighting test':['Electrical','Emergency lighting','Monthly','3 hours','Medium',['Emergency light EL-101','Emergency light EL-102'],'Monthly functional test of emergency lights and exit signs on every floor.',['Press the test button on each unit','Run the 30-minute battery test','Replace failed lamps','Check that exit signs are lit','Record results per floor'],'Shepard'],
+  'Remplacement des courroies EF-3':['HVAC','Exhaust fans','Annual','2 hours','Low',['Ventilateur d’extraction EF-103'],'Les courroies de l’EF-3 sont usées et font du bruit dans le studio voisin.',['Cadenasser le ventilateur','Retirer les courroies usées','Installer les nouvelles courroies','Ajuster la tension et l’alignement','Remettre en marche et mesurer l’ampérage [A]'],'Mécanique Laurentide'],
+  'Fire alarm panel verification':['Fire safety','Fire alarm','Annual','1 day','High',['Fire alarm panel FACP-1'],'Annual verification of the fire alarm system under CAN/ULC-S536.',['Notify the monitoring station','Test each zone from the panel','Measure battery voltage [V]','Test pull stations on two floors','Restore the panel to normal and notify the station'],'Vigil Sécurité Incendie'],
+  'Calibrate BMS temperature sensors':['Building automation','Sensors','Annual','1 day','Low',['BMS controller BMS-101'],'Studio occupants report rooms feeling warmer than the BMS shows. Recalibrate the zone sensors.',['Export current readings from the BMS','Compare each sensor with a reference thermometer','Apply offsets above 0.5 °C','Record the temperature in Studio 42 [°C]','Save the calibration log'],'Northline Controls'],
+  'Déneigement de la toiture':['Roofing','Snow removal','Every 2 weeks','4 hours','High',['Drain de toit RD-R01','Unité de toiture RTU-R01'],'Déneigement du toit après chaque accumulation de plus de 30 cm.',['Installer le périmètre de sécurité au sol','Mesurer l’épaisseur de neige [cm]','Dégager les drains et les unités de toiture','Déneiger les accès et les issues','Prendre des photos après'],'Toitures Mont-Royal'],
+  'Check walk-in cooler door gaskets':['Refrigeration','Walk-in cooler','Monthly','1 hour','Medium',['Walk-in cooler WIC-101'],'Kitchen staff noticed frost around the walk-in door. Check the gaskets and the door heater.',['Inspect the gasket for tears','Do a paper test around the door','Check the door heater strip','Record the box temperature [°C]','Clean the gasket with mild soap'],'Réfrigération Boréal'],
+  'Inspection thermographique du panneau électrique':['Electrical','Panelboards','Annual','4 hours','Medium',['Panneau électrique PE-101','Panneau électrique PE-102'],'Thermographie annuelle exigée par l’assureur, sur les panneaux du rez-de-chaussée.',['Retirer les couvercles sous supervision','Prendre les images thermiques sous charge','Relever la température du point le plus chaud [°C]','Identifier les connexions à resserrer','Remettre le rapport thermographique'],'Shepard'],
+  'Replace lobby LED fixtures':['Electrical','Lighting','One time','1 day','Low',['LED light fixture LT-101','LED light fixture LT-102'],'Replace the remaining fluorescent fixtures in the lobby with dimmable LED fixtures.',['Set up scaffolding in the lobby','Remove the old fixtures','Install the new LED fixtures','Test dimming with the lighting control','Recycle the old fixtures'],'Shepard'],
+  'Vérification des clapets coupe-feu':['Fire safety','Fire dampers','Annual','2 days','Medium',['Clapet coupe-feu FD-201','Clapet coupe-feu FD-202'],'Vérification des clapets coupe-feu selon NFPA 80, aile des studios.',['Localiser les clapets sur les plans','Ouvrir les trappes d’accès','Déclencher chaque clapet et vérifier la fermeture','Réarmer le fusible','Étiqueter et photographier chaque clapet'],'Vigil Sécurité Incendie'],
+  'Descale commercial dishwasher':['Kitchen equipment','Dishwasher','Monthly','2 hours','Low',['Commercial dishwasher DW-101'],'Monthly descaling. Montréal water leaves heavy scale on the rinse arms.',['Drain and cool the machine','Run the descaling cycle','Clean the wash and rinse arms','Check the final rinse temperature [°C]','Refill the chemicals'],'Réfrigération Boréal'],
+  'Water heater anode inspection':['Plumbing','Water heaters','Annual','3 hours','Low',['Water heater WH-101'],'Annual anode check on the main domestic hot water heater.',['Shut off gas and cold water supply','Drain a few litres from the tank','Remove and inspect the anode rod','Replace the anode if under 50% left','Refill and check the outlet temperature [°C]'],'Plomberie Saint-Laurent'],
+  'Test des détecteurs de fumée':['Fire safety','Smoke detectors','Annual','1 day','High',['Détecteur de fumée SD-101','Détecteur de fumée SD-102'],'Essai annuel de tous les détecteurs de fumée raccordés au panneau d’alarme.',['Aviser la centrale de surveillance','Tester chaque détecteur avec un aérosol','Vérifier le signal au panneau','Remplacer les détecteurs défectueux','Remettre le rapport d’essai'],'Vigil Sécurité Incendie'],
+  'Repair leaking faucet, washroom 3.2':['Plumbing','Fixtures','One time','1 hour','Medium',['Faucet W3.2-02'],'Tenant request: the second faucet in washroom 3.2 drips constantly.',['Shut off the supply under the sink','Replace the cartridge','Check the aerator and clean it','Test for leaks'],'Plomberie Saint-Laurent'],
+  'Clean solar panels':['Electrical','Solar','Bi-annual','4 hours','Low',['Panneaux solaires','Onduleur solaire INV-R01'],'Spring and fall cleaning of the rooftop panels. Output dropped by 6% since the last cleaning.',['Record inverter output before cleaning [kW]','Rinse panels with deionized water','Clean with a soft brush, no detergent','Record inverter output after cleaning [kW]'],'Toitures Mont-Royal'],
+  'Adjust VAV box airflow, Studio 42':['HVAC','VAV boxes','One time','3 hours','Medium',['VAV box VAV-402'],'Studio 42 is too cold during broadcasts. Rebalance the VAV box.',['Measure the current airflow [L/s]','Check the damper actuator','Adjust the minimum and maximum setpoints','Measure the new airflow [L/s]','Confirm comfort with the studio manager'],'Northline Controls'],
+  'Inspection des gicleurs':['Fire safety','Sprinklers','Annual','1 day','High',['Vanne de gicleurs SP-101','Vanne de gicleurs SP-102'],'Inspection annuelle du réseau de gicleurs selon NFPA 25.',['Vérifier la position des vannes','Relever la pression statique [kPa]','Faire l’essai de débit principal','Inspecter les têtes de gicleurs visibles','Remplir le rapport d’inspection'],'Vigil Sécurité Incendie'],
+  'Replace ice machine water filter':['Refrigeration','Ice machine','Bi-annual','1 hour','Low',['Ice machine IM-101'],'Six-month filter change on the cafeteria ice machine.',['Turn off the machine and the water supply','Replace the filter cartridge','Flush the new filter','Sanitize the ice bin','Discard the first batch of ice'],'Réfrigération Boréal'],
+  'Lubrification des pompes de circulation':['HVAC','Pumps','Bi-annual','3 hours','Low',['Pompe de circulation P-1','Pompe de circulation P-2'],'Graissage semestriel des pompes de chauffage dans la salle mécanique.',['Cadenasser chaque pompe','Graisser les roulements','Vérifier l’alignement de l’accouplement','Mesurer les vibrations [mm/s]','Remettre en service'],'Mécanique Laurentide'],
+  'Roof drain inspection':['Roofing','Drains','Bi-annual','2 hours','Medium',['Roof drain RD-R01','Roof drain RD-R02'],'Spring and fall drain inspection to prevent ponding and leaks into the studios.',['Remove debris from the strainers','Check the clamping rings','Run water to confirm flow','Look for ponding around the drain','Take photos of each drain'],'Toitures Mont-Royal'],
+  'Repaint loading dock lines':['Exterior','Pavement','Annual','1 day','Low',['Loading dock LD-1'],'Repaint the faded safety lines and the truck bays at the loading dock.',['Block the dock for the day','Clean and dry the surface','Repaint the safety lines in yellow','Repaint the bay numbers','Reopen once dry'],'Entretien Lumina'],
+  'Vérification de l’onduleur UPS-1':['Electrical','UPS','Bi-annual','2 hours','High',['Onduleur UPS-1'],'Vérification semestrielle de l’onduleur qui protège les équipements de diffusion.',['Prévenir l’équipe technique de la diffusion','Vérifier l’autonomie des batteries [min]','Inspecter les ventilateurs','Lire le journal d’événements','Faire un essai de transfert sur batterie'],'Shepard'],
+  'Update conference room firmware':['Audio-visual','Video conferencing','Bi-annual','2 hours','Low',['Conference system VC-101','Wall display TV-101'],'Firmware update on the meeting room systems, after hours.',['Check that no meeting is booked','Back up the current configuration','Install the latest firmware','Test a call and screen sharing','Reset the room to default settings'],'Northline Controls'],
+  'Pest control quarterly visit':['Janitorial','Pest control','Every 3 months','2 hours','Medium',['Kitchen'],'Quarterly preventive visit, focused on the kitchen and the loading dock.',['Inspect the bait stations','Replace the glue boards','Check door sweeps at the loading dock','Note any activity on the site map','Leave the visit report with security'],'Entretien Lumina'],
+  'Remplacement des filtres de la hotte':['Kitchen equipment','Exhaust hoods','Monthly','1 hour','Medium',['Hotte de cuisine EH-101'],'Remplacement mensuel des filtres à graisse de la hotte de la cafétéria.',['Éteindre l’équipement de cuisson','Retirer les filtres encrassés','Installer les filtres propres','Vérifier le fonctionnement du ventilateur','Envoyer les filtres sales au nettoyage'],'Entretien Lumina'],
+  'Chiller seasonal shutdown':['HVAC','Chiller','Annual','1 day','Medium',['Chiller CH-1'],'Fall shutdown of the chiller and winterization of the condenser water loop.',['Record final operating pressures [kPa]','Shut down the chiller and pumps','Drain the condenser water loop','Inspect the tubes for scale','Lock out until spring'],'Mécanique Laurentide'],
+  'Inspect parking garage CO sensors':['Building automation','Gas detection','Annual','4 hours','High',['CO sensor CO-P101','CO sensor CO-P102'],'Annual calibration of carbon monoxide sensors in the underground parking.',['Bump test each sensor with calibration gas','Record the reading at 50 ppm [ppm]','Check the exhaust fan starts on alarm','Replace sensors past their service life','Update the calibration labels'],'Northline Controls'],
+  'Nettoyage des vitres extérieures':['Janitorial','Windows','Bi-annual','2 days','Low',['Façade est','Façade sud'],'Lavage semestriel des vitres extérieures par nacelle.',['Réserver la zone de travail sur le trottoir','Installer la nacelle','Laver les vitres de la façade est','Laver les vitres de la façade sud','Retirer le périmètre de sécurité'],'Entretien Lumina'],
+  'Replace worn door closer, entrance B':['Architectural','Doors','One time','2 hours','Medium',['Door closer DC-B1'],'The door at entrance B slams shut. Replace the closer.',['Remove the old closer','Install the new closer','Adjust the closing speed','Check the latch engages','Test the door with the access card reader'],'Entretien Lumina'],
+  'Sweep snow':['Roofing','Snow removal','Every 2 weeks','4 hours','Medium',['Panneaux solaires'],'Clear snow from the solar panels after each snowfall over 10 cm.',['Check roof access is safe','Brush snow off with a soft roof rake','Clear around the inverter','Check the panels for damage'],'Toitures Mont-Royal'],
+  'Adjust inclination':['Electrical','Solar','Bi-annual','4 hours','Low',['Panneaux solaires'],'Seasonal tilt change for better winter output.',['Loosen the mounting brackets','Set the tilt to the winter angle','Tighten the brackets to torque','Record inverter output after adjustment [kW]'],'Toitures Mont-Royal']
+};
+const woSlug = (n) => n.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const WO_BY_SLUG = Object.fromEntries(Object.keys(WO_SPEC).map(n=>[woSlug(n),n]));
+const woHref = (n) => '#wo/'+woSlug(n);
+const WO_FR = new Set(['Toit des Studios','Inspection annuelle des extincteurs','Nettoyage des conduits de ventilation','Essai de la génératrice d’urgence','Remplacement des courroies EF-3','Déneigement de la toiture','Inspection thermographique du panneau électrique','Vérification des clapets coupe-feu','Test des détecteurs de fumée','Inspection des gicleurs','Lubrification des pompes de circulation','Vérification de l’onduleur UPS-1','Remplacement des filtres de la hotte','Nettoyage des vitres extérieures']);
+const isFr = (n) => WO_FR.has(n);
+const NOTES_EN = ['Access is through the service corridor. Ask security for the key at the desk.','Parts are on site, in the mechanical room cage.','Studio recording until 2 pm, please avoid noisy work before then.','Please send photos before and after, the property manager wants them for the report.','Last visit found nothing abnormal. Same procedure as last year.','{asset}: minor wear noticed last time, check it again.','Quote for the follow-up repairs sent to the property manager.'];
+const NOTES_FR = ['L’accès se fait par le corridor de service. Demander la clé à la sécurité.','Les pièces sont sur place, dans la cage de la salle mécanique.','Enregistrement en studio jusqu’à 14 h, éviter les travaux bruyants avant.','Merci d’envoyer des photos avant et après pour le rapport.','Rien d’anormal à la dernière visite. Même procédure que l’an passé.','{asset} : légère usure notée la dernière fois, à revérifier.','Soumission pour les réparations envoyée au gestionnaire immobilier.'];
+const NOTE_DATES = ['Oct 12, 2022','Oct 28, 2022','Nov 3, 2022','Nov 12, 2022','Nov 21, 2022'];
+/* Everything a work order detail page shows, built once per title. */
+const woCache = new Map();
+function woDetail(name){
+  if(woCache.has(name)) return woCache.get(name);
+  const [cat,type,rec,dur,prio,assets,desc,tasks,supplier] = WO_SPEC[name] || WO_SPEC['Toit des Studios'];
+  const r=rng('wo|'+name), fr=isFr(name);
+  const crew = peopleAt(supplier).filter(p=>/echnician|Foreman/.test(p.title));
+  const who = name==='Toit des Studios' ? CRISTOPHER : (crew.length?pick(r,crew):pick(r,peopleAt(supplier)));
+  const groups = assets.map((a,i)=>({title:a,tasks:i===0?tasks:tasks.slice(0,Math.max(2,tasks.length-2))}));
+  groups.push({title:fr?'Autres tâches':'Other tasks',tasks:fr?['Mettre à jour le registre','Nettoyer la zone de travail']:['Update the logbook','Clean up the work area']});
+  const day = 1+Math.floor(r()*28);
+  const pool = shuffle(r,fr?NOTES_FR:NOTES_EN).slice(0,3+Math.floor(r()*2));
+  const authors = [who, HUDSON, ...shuffle(r,INTERNAL.slice(0,3))];
+  const notes = pool.map((t,i)=>({text:t.replace('{asset}',assets[0]),who:authors[i%authors.length].name,when:NOTE_DATES[NOTE_DATES.length-1-i-(day%2)],pinned:i===0,imgs:i===1&&r()<.6?2:0}));
+  const d = {name,cat,type,rec,dur,prio,desc,who,groups,notes,due:`Dec ${day}, 2022`,status:'In progress',
+    checks:groups.map((g,gi)=>g.tasks.map((_,ti)=>gi===groups.length-1 ? true : r()<.35))};
+  woCache.set(name,d); return d;
+}
+
 /* Asset catalog: [domain, type, English label, French label, tag prefix, brands, where it fits].
    Where: k = kitchen, m = meeting room, g = any room, r = rooftop. */
 const ASSET_CATALOG = [
@@ -598,20 +671,20 @@ function roomAssets(wing,floor,room){
 
 const state = {
   woView:'list', dense:false, open:{}, theme:null, authed:false,
-  checks:{a:[false,true,true,false,false],b:[false,true,false],c:[true,true]},
-  modalChecks:[false,true,true,true,false],
+  checks:[], modalChecks:[], modalGrp:0, woName:'Toit des Studios',
   notes:[
-    {pinned:true,text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:EXTERNAL[2].name,when:'Oct 12, 2022'},
-    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:INTERNAL[0].name,when:'Nov 12, 2022',imgs:2},
-    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:INTERNAL[3].name,when:'Nov 12, 2022'},
-    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:EXTERNAL[7].name,when:'Nov 12, 2022'}
+    {pinned:true,text:'Le panneau 14 a une fissure dans le coin inférieur, à surveiller au prochain nettoyage.',who:EXTERNAL[2].name,when:'Oct 12, 2022'},
+    {text:'Production in October was 6% below forecast. Probably dirt, cleaning is booked.',who:INTERNAL[0].name,when:'Nov 12, 2022',imgs:2},
+    {text:'Accès au toit par l’escalier C seulement, l’échelle du 11e est condamnée.',who:INTERNAL[3].name,when:'Nov 12, 2022'},
+    {text:'Warranty runs until 2030, keep Bousquet Technologies in copy for any repair.',who:EXTERNAL[7].name,when:'Nov 12, 2022'}
   ],
   assetTab:'Work orders', wing:'Wing name A', floor:'Floor 1',
-  month:11, year:2022, calView:'Month', placed:{}, queue:null, woStatus:'In progress',
+  month:11, year:2022, calView:'Month', placed:{}, queue:null, 
   assignee:'Hudson Alvarez'
 };
 state.queue = Array.from({length:13},(_,i)=>({id:'p'+i,status:'Planned',name:woName('dec-queue',i)}));
 state.queue0 = [...state.queue];
+state.assetNotes = state.notes;
 
 /* ---------- shared pieces ---------- */
 const NAV = [['analytics','Analytics'],['buildings','Buildings'],['contacts','Contacts'],['mywo','Work orders assigned to me']];
@@ -650,10 +723,10 @@ function filterRail(fields){
 const WO_FILTERS = (assignee) => ['search','#General',['Buildings','All buildings'],'Status','Priority',assignee?['Assignee',assignee]:'Assignee','Supplier (company)','#Time',['Due date','From {date} to {date}'],'Recurrence','Work order duration','#Category','Maintenance category','Asset category'];
 
 function woCard(i=0,key=''){
-  const short = i%3===2;
-  return `<a class="card wo" href="#wo">
+  const short = i%3===2, n=woName('card|'+key,i);
+  return `<a class="card wo" href="${woHref(n)}">
     <div class="wo-top">${chip('Ready')}<span class="chip c-green">${ic('down',12)} Low</span><span class="k" role="button" aria-label="Options">${ic('dots',18)}</span></div>
-    <h4>${woName('card|'+key,i)}</h4><div class="due">Due Date: 15/01/2023</div>
+    <h4>${n}</h4><div class="due">Due Date: 15/01/2023</div>
     <p>Unlike the three battery technologies explained above, lithium-ion batteries do not have a single combination of elements.</p>
     <ul><li>${ic('user',16)}Cristopher Cardenas</li><li>${ic('pin',16)}Radio-Canada</li><li>${ic('wrench',16)}Heater 300</li><li>${ic('repeat',16)}Annually</li></ul></a>`;
 }
@@ -738,7 +811,7 @@ S.analytics = () => header('analytics') + `<main class="page">${pageHead('Analyt
     <div class="legend" style="padding-top:8px"><span><i style="background:var(--grey-dot)"></i>Within estimated duration</span><span><i style="background:var(--green)"></i>Less than estimated duration</span><span><i style="background:var(--red)"></i>More than estimated duration</span></div></section>
   </div>
   <div class="col"><a class="btn btn-primary" href="#calendar">${ic('cal',16)} Schedule work order in calendar view</a>
-   <section class="card"><div class="card-h"><h3>Recent work orders</h3></div><div class="timeline">${RECENT.map((s,i)=>`<a class="tl" href="#wo" style="color:inherit"><span class="dot" style="background:${DOT[s]}"></span><div><div class="meta"><span>Nov 12, 2022</span>${chip(s)}</div><b>${woName('recent',i)}</b><small>Assignee: ${woPerson('recent'+i).name}<br>${BUILDINGS[hashStr('bldg'+i)%BUILDINGS.length]}</small></div></a>`).join('')}</div></section>
+   <section class="card"><div class="card-h"><h3>Recent work orders</h3></div><div class="timeline">${RECENT.map((s,i)=>`<a class="tl" href="${woHref(woName('recent',i))}" style="color:inherit"><span class="dot" style="background:${DOT[s]}"></span><div><div class="meta"><span>Nov 12, 2022</span>${chip(s)}</div><b>${woName('recent',i)}</b><small>Assignee: ${woPerson('recent'+i).name}<br>${BUILDINGS[hashStr('bldg'+i)%BUILDINGS.length]}</small></div></a>`).join('')}</div></section>
   </div></div></main>`;
 
 const perfEmpty = (extra='') => `<div class="empty-ill"><p>Building performance shows the energy performance of ${extra||'all buildings'}. It will feed into ESG reporting.</p>
@@ -792,7 +865,7 @@ S['building-perf'] = () => header('buildings') + `<main class="page">${bHead()}$
 const WO_RAIL = ['search','#General','Status','Priority','Assignee','Supplier (company)','#Time',['Due date','From {date} to {date}'],'Recurrence','Work order duration','#Category','Maintenance category','Asset category'];
 S['building-wo'] = () => {
   const toolbar = `<div class="toolbar"><div class="seg" role="group" aria-label="View"><button class="${state.woView==='list'?'on':''}" data-view="list" aria-label="List view">${ic('list',18)}</button><button class="${state.woView==='cards'?'on':''}" data-view="cards" aria-label="Card view">${ic('grid',18)}</button></div><a class="btn btn-primary" href="#calendar">${ic('cal',16)} Schedule work order in calendar view</a></div>`;
-  const rows = Array.from({length:10},(_,i)=>`<tr class="link" data-go="wo"><td>${i?woName('bwo-table',i):'Toit des Studios'}</td><td>Annual</td><td class="num">07 Aug 2022</td><td>Low</td><td>${chip('In progress')}</td></tr>`).join('');
+  const rows = Array.from({length:10},(_,i)=>`<tr class="link" data-go="${woHref(i?woName('bwo-table',i):'Toit des Studios').slice(1)}"><td>${i?woName('bwo-table',i):'Toit des Studios'}</td><td>Annual</td><td class="num">07 Aug 2022</td><td>Low</td><td>${chip('In progress')}</td></tr>`).join('');
   const list = `<section class="card" style="overflow:hidden"><div class="table-wrap"><table class="${state.dense?'dense':''}"><thead><tr><th>Name</th><th>Recurrence</th><th>Due date</th><th>Priority</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
    <div class="tfoot"><label class="switch"><input type="checkbox" id="dense" ${state.dense?'checked':''}>Dense</label><div class="pg num"><span>Rows per page: <b>10</b> ${ic('chev',14)}</span><span>1–10 of 11</span><span style="display:flex;gap:8px;color:var(--fg-3)">${ic('chevL',18)}<span style="color:var(--fg)">${ic('chevR',18)}</span></span></div></div></section>`;
   return header('buildings') + `<main class="page">${bHead()}${bTabs('building-wo')}<div class="split">${filterRail(WO_RAIL)}<div>${toolbar}${state.woView==='list'?list:woBoard('bwo',[8,6,4,2,1])}</div></div></main>`;
@@ -815,16 +888,18 @@ S['building-assets'] = () => {
 
 /* work order detail */
 S.wo = () => {
-  const grp = (key,title,tasks,done) => `<div class="grp"><div class="grp-h"><b>${title}</b>${done?`<span style="color:var(--green)">${ic('check',22)}</span>`:`<button class="btn btn-primary" data-act="checklist">Start working</button>`}</div>${tasks.map((t,i)=>`<label class="task"><input type="checkbox" data-check="${key}:${i}" ${state.checks[key][i]?'checked':''}><span>${t}</span></label>`).join('')}</div>`;
-  return header('buildings') + `<main class="page">${pageHead('Toit des Studios',{back:'building-wo',extra:`<button class="chip ${STATUS[state.woStatus]}" style="height:30px;padding:0 10px;font-size:13px" data-pop="status">${state.woStatus} ${ic('chev',14)}</button>`})}
+  const d=woDetail(state.woName), fr=isFr(d.name), last=d.groups.length-1;
+  state.checks=d.checks; state.notes=d.notes;
+  const taskText = (t) => t.replace(/\s*\[[^\]]+\]$/,'');
+  const assetLink = (t) => /Panneaux solaires/.test(t) ? `<a href="#asset" style="color:inherit">${t}</a>` : t;
+  const grp = (g,gi) => { const done=d.checks[gi].every(Boolean); return `<div class="grp"><div class="grp-h"><b>${gi===last?g.title:assetLink(g.title)}</b>${done?`<span style="color:var(--green)">${ic('check',22)}</span>`:`<button class="btn btn-primary" data-act="checklist" data-grp="${gi}">${fr?'Commencer':'Start working'}</button>`}</div>${g.tasks.map((t,i)=>`<label class="task"><input type="checkbox" data-check="${gi}:${i}" ${d.checks[gi][i]?'checked':''}><span>${taskText(t)}</span></label>`).join('')}</div>`; };
+  return header('buildings') + `<main class="page">${pageHead(d.name,{back:'building-wo',extra:`<button class="chip ${STATUS[d.status]}" style="height:30px;padding:0 10px;font-size:13px" data-pop="status">${d.status} ${ic('chev',14)}</button>`})}
   <div class="tri"><div class="col" style="gap:16px">
-    <p style="margin:0">Little description of the work order.</p><div class="imgs"><span class="ph-img">${ic('img',18)}</span><span class="ph-img">${ic('img',18)}</span></div>
-    <div class="kv"><div><b>Recurrence:</b> Annual</div><div><b>Priority:</b> High</div><div><b>Maintenance category:</b> {category} / {Type}</div><div><b>Estimated duration:</b> 1 day</div><div><b>Due date:</b> Dec 11, 2022 <a href="#calendar" style="font-weight:700;font-size:13px;margin-left:6px">Change</a></div><div><b>Assigned to:</b></div></div>
-    ${personCard()}</div>
+    <p style="margin:0">${d.desc}</p><div class="imgs"><span class="ph-img">${ic('img',18)}</span><span class="ph-img">${ic('img',18)}</span></div>
+    <div class="kv"><div><b>Recurrence:</b> ${d.rec}</div><div><b>Priority:</b> ${d.prio}</div><div><b>Maintenance category:</b> ${d.cat} / ${d.type}</div><div><b>Estimated duration:</b> ${d.dur}</div><div><b>Due date:</b> ${d.due} <a href="#calendar" style="font-weight:700;font-size:13px;margin-left:6px">Change</a></div><div><b>Assigned to:</b></div></div>
+    ${personCard(d.who)}</div>
    <section class="card checklist"><div style="padding:24px 20px"><h3 style="font-size:18px">Checklist</h3><p style="margin:4px 0 0;color:var(--fg-2)">Complete all the tasks in the checklist</p></div>
-    ${grp('a','<a href="#asset" style="color:inherit">Panneaux solaires</a>',['Task 1 Occaecati est et illo quibusdam accusamus','Add SCSS and JS files if required','Stakeholder Meeting','Task 4 Occaecati est et illo quibusdam accusamus','Task 5 Take temperature of something'])}
-    ${grp('b','Onduleur solaire INV-R01',['Task 1 Occaecati est et illo quibusdam accusamus','Completed task','Task 4 Occaecati est et illo quibusdam accusamus'])}
-    ${grp('c','Other tasks',['Completed task','Completed task'],state.checks.c.every(Boolean))}</section>
+    ${d.groups.map(grp).join('')}</section>
    ${notesCard()}</div></main>`;
 };
 function notesCard(){
@@ -835,10 +910,11 @@ function notesCard(){
 
 /* asset detail */
 S.asset = () => {
+  state.notes = state.assetNotes;
   const items=[['In progress','Toit des Studios','Annual • 2022'],['Completed','Sweep snow','Every 2 weeks • 2022'],['Completed','Adjust inclination','Bi-annual • 2022'],['Completed','Adjust inclination','Bi-annual • 2022']];
   const tabs=['Work orders','Documents (5)','Checklists','Sub-assets'];
   let body='';
-  if(state.assetTab==='Work orders') body=items.map(([s,t,m],i)=>`<a class="wo-item" href="${i===0?'#wo':'#wo'}" style="color:inherit"><span>${chip(s)}</span><b style="font-weight:500">${t}</b><span>Description Cupcake ipsum dolor sit amet sweet roll brownie powder.</span><small>${m}</small></a>`).join('')+`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><a class="btn btn-primary" href="#new-wo">${ic('plus',18)} New work order</a><a href="#building-wo" style="font-weight:700">View all work orders</a></div>`;
+  if(state.assetTab==='Work orders') body=items.map(([s,t,m],i)=>`<a class="wo-item" href="${woHref(t)}" style="color:inherit"><span>${chip(s)}</span><b style="font-weight:500">${t}</b><span>Description Cupcake ipsum dolor sit amet sweet roll brownie powder.</span><small>${m}</small></a>`).join('')+`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><a class="btn btn-primary" href="#new-wo">${ic('plus',18)} New work order</a><a href="#building-wo" style="font-weight:700">View all work orders</a></div>`;
   else if(state.assetTab==='Documents (5)') body=['Installation manual.pdf','Warranty certificate.pdf','Wiring diagram.pdf','Inspection report 2022.pdf','Supplier invoice.pdf'].map(d=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--line)"><span>${d}</span><small style="color:var(--fg-2)">PDF</small></div>`).join('');
   else if(state.assetTab==='Checklists') body=`<b>Annual</b>${['Clean panel surface','Check inverter output','Inspect mounting brackets','Take temperature of panels'].map(t=>`<label class="task"><input type="checkbox"><span>${t}</span></label>`).join('')}`;
   else body=`<div class="asset-grid" style="grid-template-columns:1fr">${['Inverter A','Inverter B','Battery bank'].map(n=>`<a class="asset" href="#asset"><span class="thumb">${ic('img',18)}</span><span class="info"><b>${n}</b><span>Electrical / Energy storage</span></span></a>`).join('')}</div>`;
@@ -931,8 +1007,9 @@ S.profile = () => header('') + `<main class="page"><div class="two" style="grid-
 /* ---------- router ---------- */
 const ROUTES = Object.keys(S);
 function render(){
-  let r = location.hash.slice(1) || 'login';
+  let [r,arg] = (location.hash.slice(1) || 'login').split('/');
   if(!ROUTES.includes(r)) r='login';
+  if(r==='wo') state.woName = WO_BY_SLUG[arg] || 'Toit des Studios';
   if(r!=='login' && !state.authed){ state.authed=true; }
   closePop();
   document.getElementById('app').innerHTML = S[r]();
@@ -993,6 +1070,7 @@ function armCharts(route){
   });
 }
 const go = (r) => { if(location.hash==='#'+r) render(); else location.hash=r; };
+const goWo = (name) => go(woHref(name).slice(1));
 
 /* ---------- popovers ---------- */
 const layer = document.getElementById('layer');
@@ -1012,10 +1090,11 @@ function openPop(kind,anchor){
   p.style.left = Math.max(12,left)+'px'; p.style.top = (r.bottom+8)+'px';
 }
 function toast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; t.setAttribute('role','status'); document.body.appendChild(t); setTimeout(()=>t.remove(),2200); }
-function checklistModal(){
-  const tasks=['Task 1 Occaecati est et illo quibusdam accusamus','Add SCSS and JS files if required','Stakeholder Meeting','Task 4 Occaecati est et illo quibusdam accusamus','Task 5 Take temperature of something'];
-  layer.innerHTML = `<div class="scrim" data-close="1"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mh"><h3 id="mh">Checklist</h3><b>Panneaux solaires</b>
-   ${tasks.map((t,i)=>`<label class="task" style="color:var(--fg)"><input type="checkbox" data-mcheck="${i}" ${state.modalChecks[i]?'checked':''}><span>${t}</span></label>${i===4?`<div class="frow" style="padding-left:32px;max-width:340px">${ff('Temperature','16')}${ff('Unit','Celsius',{select:true,opts:['Fahrenheit']})}</div>`:''}`).join('')}
+function checklistModal(gi=0){
+  const d=woDetail(state.woName), g=d.groups[gi];
+  state.modalGrp=gi; state.modalChecks=[...d.checks[gi]];
+  layer.innerHTML = `<div class="scrim" data-close="1"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mh"><h3 id="mh">Checklist</h3><b>${g.title}</b>
+   ${g.tasks.map((t,i)=>{ const unit=(t.match(/\[([^\]]+)\]$/)||[])[1]; return `<label class="task" style="color:var(--fg)"><input type="checkbox" data-mcheck="${i}" ${state.modalChecks[i]?'checked':''}><span>${t.replace(/\s*\[[^\]]+\]$/,'')}</span></label>${unit?`<div class="frow" style="padding-left:32px;max-width:340px">${ff('Reading','')}${ff('Unit',unit,{select:true,opts:[]})}</div>`:''}`; }).join('')}
    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px"><button class="btn btn-ghost-red" data-close="1">Don't save</button><button class="btn btn-primary btn-lg" data-act="saveprog">Save progress</button></div></div></div>`;
 }
 
@@ -1035,7 +1114,7 @@ document.addEventListener('click',(e)=>{
   if(d.atab){ state.assetTab=d.atab; render(); return; }
   if(d.calv){ state.calView=d.calv; if(d.calv!=='Month') toast(`${d.calv} view isn't designed yet, showing Month`); state.calView='Month'; render(); return; }
   if(d.mon){ state.month+=+d.mon; if(state.month<0){state.month=11;state.year--;} if(state.month>11){state.month=0;state.year++;} render(); return; }
-  if(d.status){ state.woStatus=d.status; closePop(); render(); toast(`Status changed to ${d.status}`); return; }
+  if(d.status){ woDetail(state.woName).status=d.status; closePop(); render(); toast(`Status changed to ${d.status}`); return; }
   if(d.pin!==undefined){ const n=state.notes.splice(+d.pin,1)[0]; state.notes.forEach(x=>x.pinned=false); n.pinned=true; state.notes.unshift(n); render(); toast('Note pinned'); return; }
   if(d.copy){ e.preventDefault(); const v=d.copy; (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>toast('Copied '+v)).catch(()=>toast(v)); return; }
   if(d.sec){ document.querySelectorAll('.side-nav a').forEach(a=>a.classList.toggle('on',a===t)); e.preventDefault(); document.getElementById(d.sec).scrollIntoView({behavior:'smooth'}); return; }
@@ -1048,17 +1127,17 @@ document.addEventListener('click',(e)=>{
     case 'reset': document.querySelectorAll('.filters select').forEach(s=>s.selectedIndex=0); document.querySelectorAll('.filters input').forEach(i=>{i.value='';i.checked=false;}); toast('Filters reset'); break;
     case 'apply': toast('Filters applied'); break;
     case 'toast': e.preventDefault(); toast(d.msg); break;
-    case 'checklist': checklistModal(); break;
-    case 'saveprog': state.checks.a=[...state.modalChecks]; closePop(); render(); toast('Progress saved'); break;
-    case 'post': { const v=document.getElementById('note-text').value.trim(); if(!v){toast('Write a note first');return;} const pinned=state.notes.filter(n=>n.pinned); const rest=state.notes.filter(n=>!n.pinned); state.notes=[...pinned,{text:v,who:'Hudson Alvarez',when:'Just now'},...rest]; render(); toast('Note posted'); break; }
+    case 'checklist': checklistModal(+d.grp||0); break;
+    case 'saveprog': state.checks[state.modalGrp]=[...state.modalChecks]; closePop(); render(); toast('Progress saved'); break;
+    case 'post': { const v=document.getElementById('note-text').value.trim(); if(!v){toast('Write a note first');return;} state.notes.splice(state.notes.filter(n=>n.pinned).length,0,{text:v,who:'Hudson Alvarez',when:'Just now'}); render(); toast('Note posted'); break; }
     case 'today': state.month=11; state.year=2022; render(); break;
     case 'cancel': history.length>1?history.back():go('building'); break;
-    case 'save': { const f=document.getElementById('the-form'); const name=f.querySelector('input'); if(name&&!name.value.trim()){ name.focus(); toast('Add a name before saving'); return;} toast(d.msg.replace(' done',' saved').replace('Create ','')+''); setTimeout(()=>go(location.hash==='#new-wo'?'wo':'asset'),700); break; }
+    case 'save': { const f=document.getElementById('the-form'); const name=f.querySelector('input'); if(name&&!name.value.trim()){ name.focus(); toast('Add a name before saving'); return;} toast(d.msg.replace(' done',' saved').replace('Create ','')+''); setTimeout(()=>location.hash==='#new-wo'?goWo('Toit des Studios'):go('asset'),700); break; }
   }
 });
 document.addEventListener('change',(e)=>{
   const d=e.target.dataset;
-  if(d.check){ const [k,i]=d.check.split(':'); state.checks[k][+i]=e.target.checked; if(k==='c') render(); return; }
+  if(d.check){ const [k,i]=d.check.split(':'); state.checks[+k][+i]=e.target.checked; render(); return; }
   if(d.mcheck!==undefined){ state.modalChecks[+d.mcheck]=e.target.checked; return; }
   if(e.target.id==='dense'){ state.dense=e.target.checked; render(); }
 });
@@ -1077,12 +1156,13 @@ document.addEventListener('mouseover',(e)=>{
   const ev=e.target.closest('.ev'); if(!ev){ if(tip){tip.remove();tip=null;} return; }
   if(tip) return; const r=ev.getBoundingClientRect();
   tip=document.createElement('div'); tip.className='ev-tip';
-  tip.innerHTML=`${chip('Ready')}<b>${ev.dataset.name||''}</b>Little description of the work order (optional)<br>Building: Maison de Radio-Canada<br>Recurrence: Annually<br>Assignee: ${woPerson('cal'+ev.dataset.name).name}<br>Estimated duration: 1 day<br>Due date: 12/${String(ev.dataset.ev).padStart(2,'0')}/2022<br>Priority: High`;
+  const wd=woDetail(ev.dataset.name);
+  tip.innerHTML=`${chip('Ready')}<b>${wd.name}</b>${wd.desc}<br>Building: Maison de Radio-Canada<br>Recurrence: ${wd.rec}<br>Assignee: ${wd.who.name}<br>Estimated duration: ${wd.dur}<br>Due date: 12/${String(ev.dataset.ev).padStart(2,'0')}/2022<br>Priority: ${wd.prio}`;
   document.body.appendChild(tip);
   const left = r.right+10+280>window.innerWidth ? r.left-290 : r.right+10;
   tip.style.left=Math.max(8,left)+'px'; tip.style.top=Math.min(r.top,window.innerHeight-260)+'px';
 });
-document.addEventListener('click',(e)=>{ const ev=e.target.closest('.ev'); if(ev){ if(tip){tip.remove();tip=null;} go('wo'); } });
+document.addEventListener('click',(e)=>{ const ev=e.target.closest('.ev'); if(ev){ if(tip){tip.remove();tip=null;} goWo(ev.dataset.name); } });
 function bindDnD(){
   document.querySelectorAll('.qi[draggable]').forEach(el=>{ el.addEventListener('dragstart',ev=>{ ev.dataTransfer.setData('text/plain',el.dataset.q||''); ev.dataTransfer.effectAllowed='move'; }); });
   document.querySelectorAll('.day[data-day]').forEach(day=>{
