@@ -260,6 +260,9 @@ tr.link:hover td{background:var(--paper-2)}
 .asset .info{padding:8px 12px;display:grid;align-content:center;line-height:1.4;min-width:0}
 .asset .info b{font-size:13px;font-weight:600}
 .asset .info span{font-size:12px;color:var(--fg-2)}
+.asset .info b,.asset .info>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asset.has-par .info{padding-right:40px}
+.qi span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .asset .par{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--fg-2)}
 .asset .tip{position:absolute;right:0;bottom:calc(100% + 6px);background:var(--paper);box-shadow:var(--shadow-pop);border-radius:8px;padding:8px 12px;font-size:12px;white-space:nowrap;display:none;z-index:3;line-height:1.5}
 .asset .par:hover+.tip{display:block}
@@ -456,7 +459,7 @@ const wordmark = () => `<svg width="206" height="36" viewBox="0 0 206 36" role="
 const flag = () => `<svg width="26" height="18" viewBox="0 0 60 40" aria-hidden="true"><clipPath id="fc"><rect width="60" height="40" rx="4"/></clipPath><g clip-path="url(#fc)"><rect width="60" height="40" fill="#012169"/><path d="M0 0l60 40M60 0L0 40" stroke="#fff" stroke-width="8"/><path d="M0 0l60 40M60 0L0 40" stroke="#C8102E" stroke-width="3"/><path d="M30 0v40M0 20h60" stroke="#fff" stroke-width="12"/><path d="M30 0v40M0 20h60" stroke="#C8102E" stroke-width="7"/></g></svg>`;
 
 const AV = {HA:['#22A06B','#B5F5C8'],CC:['#B76E00','#FFE7B3'],JS:['#454F5B','#DFE3E8']};
-const avatar = (ini,s=40) => { const [a,b]=AV[ini]||['#078DEE','#CAF6FF']; return `<span class="avatar" style="width:${s}px;height:${s}px;background:${b};color:${a};font-size:${Math.round(s*.36)}px">${ini}</span>`; };
+const avatar = (ini,s=40) => { const PAL=[['#078DEE','#CAF6FF'],['#22A06B','#B5F5C8'],['#B76E00','#FFE7B3'],['#7635DC','#EBD6FD'],['#B71D18','#FFE9D5'],['#006C9C','#CAFDF5']]; const [a,b]=AV[ini]||PAL[[...ini].reduce((h,c)=>h+c.charCodeAt(0),0)%PAL.length]; return `<span class="avatar" style="width:${s}px;height:${s}px;background:${b};color:${a};font-size:${Math.round(s*.36)}px">${ini}</span>`; };
 
 /* ---------- data ---------- */
 const STATUS = {Planned:'c-grey',Ready:'c-grey','In progress':'c-blue','On hold':'c-amber',Overdue:'c-red',Completed:'c-green'};
@@ -469,21 +472,146 @@ const legend4 = () => `<div class="legend">${['In progress','On hold','Overdue',
 const RECENT = ['Overdue','Completed','In progress','Completed','In progress','On hold','In progress','Completed','Completed','In progress'];
 const DOT = {Overdue:'var(--red)',Completed:'var(--green)','In progress':'var(--brand)','On hold':'var(--amber)'};
 
+/* ---------- mock data ----------
+   Every generated name, company, work order and asset comes from here. Generation is seeded,
+   so the same screen shows the same data on every reload. Change MOCK_SEED to reshuffle everything. */
+const MOCK_SEED = 'maxen-2022';
+const hashStr = (s) => { let h=2166136261; for(const c of String(s)){ h^=c.charCodeAt(0); h=Math.imul(h,16777619); } return h>>>0; };
+const rng = (key) => { let a=hashStr(MOCK_SEED+'|'+key); return () => { a=(a+0x6D2B79F5)>>>0; let t=a; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; };
+const pick = (r,arr) => arr[Math.floor(r()*arr.length)];
+const shuffle = (r,arr) => { const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(r()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const initials = (name) => name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+const slug = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z]/g,'');
+
+const FIRST_NAMES = ['Marie-Ève','Jean-François','Sophie','Mathieu','Camille','Olivier','Isabelle','Étienne','Nadia','Gabriel','Chloé','Alexandre','Émilie','Samuel','Valérie','Karim','Priya','Daniel','Laura','Kevin','Amélie','Thomas','Fatima','Simon','Julie','Marc-André','Sarah','Vincent','Mélanie','Lucas','Andréanne','Patrick','Yasmine','Louis','Geneviève','Ryan','Nathalie','Hugo','Catherine','Maxime'];
+const LAST_NAMES = ['Tremblay','Gagnon','Roy','Côté','Bouchard','Gauthier','Morin','Lavoie','Fortin','Gagné','Ouellet','Pelletier','Bélanger','Lévesque','Bergeron','Leblanc','Paquette','Girard','Nguyen','Haddad','Patel','Chen','Murphy','Campbell','Fraser','Martel','Dubois','Lefebvre','Benoît','Caron','Desjardins','Thibault','Okafor','Rossi','Sauvé'];
+/* Suppliers are fictional. Shepard comes from the Figma file. */
+const SUPPLIERS = [
+  {name:'Shepard',domain:'shepard.com',disc:'Electricity'},
+  {name:'Mécanique Laurentide',domain:'mlaurentide.ca',disc:'HVAC'},
+  {name:'Plomberie Saint-Laurent',domain:'plomberiestl.ca',disc:'Plumbing'},
+  {name:'Réfrigération Boréal',domain:'refboreal.ca',disc:'Refrigeration'},
+  {name:'Ascenseurs Montcalm',domain:'ascmontcalm.ca',disc:'Elevators'},
+  {name:'Vigil Sécurité Incendie',domain:'vigilsecurite.ca',disc:'Fire safety'},
+  {name:'Northline Controls',domain:'northline.ca',disc:'Building automation'},
+  {name:'Toitures Mont-Royal',domain:'toituresmr.ca',disc:'Roofing'},
+  {name:'Entretien Lumina',domain:'lumina.ca',disc:'Janitorial'}
+];
+const EXT_TITLES = ['Technician','Technician','Technician','Senior technician','Foreman','Service coordinator','Account manager'];
+const INT_TITLES = ['ESG Director','Property manager','Portfolio manager','Maintenance planner','Facilities coordinator','Energy analyst'];
+const phoneFor = (k) => { const r=rng('phone|'+k); return `(${pick(r,['514','438'])}) 555-01${String(Math.floor(r()*100)).padStart(2,'0')}`; };
+const mkPerson = (name,company,title,domain) => { const [f,...l]=name.split(' '); return {name,company,title,initials:initials(name),phone:phoneFor(name),email:`${slug(f)[0]}${slug(l.join(''))}@${domain}`}; };
+
+/* Named people from the Figma file stay as they were. */
+const HUDSON = {...mkPerson('Hudson Alvarez','Maxen','Building manager','maxen.ca'),email:'hudson.alvarez@maxen.ca',phone:'(514) 555-0142'};
+const CRISTOPHER = {...mkPerson('Cristopher Cardenas','Shepard','Technician','shepard.com'),phone:'(514) 897-6312',disc:'Electricity'};
+const JON = {...mkPerson('Jon Snow','Shepard','Technician','shepard.com'),disc:'Electricity'};
+
+const PEOPLE = (() => {
+  const r=rng('people'), used=new Set(['Hudson Alvarez','Cristopher Cardenas','Jon Snow']), out=[];
+  while(out.length<70){ const n=`${pick(r,FIRST_NAMES)} ${pick(r,LAST_NAMES)}`; if(!used.has(n)){ used.add(n); out.push(n); } }
+  return out;
+})();
+/* 12 Maxen staff, then supplier staff spread across suppliers. */
+const INT_DISC = {'ESG Director':'Sustainability','Property manager':'Property management','Portfolio manager':'Asset management','Maintenance planner':'Maintenance','Facilities coordinator':'Facilities','Energy analyst':'Energy'};
+const INTERNAL = PEOPLE.slice(0,12).map((n,i)=>{ const t=INT_TITLES[i%INT_TITLES.length]; return {...mkPerson(n,'Maxen',t,'maxen.ca'),disc:INT_DISC[t]}; });
+const EXTERNAL = PEOPLE.slice(12).map((n,i)=>{ const s=SUPPLIERS[i%SUPPLIERS.length]; return {...mkPerson(n,s.name,pick(rng('title|'+n),EXT_TITLES),s.domain),disc:s.disc}; });
+EXTERNAL.splice(4,0,CRISTOPHER);
+const peopleAt = (company) => EXTERNAL.filter(p=>p.company===company);
+/* Assignee leaderboard: Jon Snow stays in slot 6 because the Figma flow links to his page from there. */
+const ASSIGNEES = (() => { const a=shuffle(rng('assignees'),EXTERNAL.filter(p=>/echnician|Foreman/.test(p.title))).slice(0,19); a.splice(5,0,JON); return a; })();
+const BUILDINGS = ['Maison de Radio-Canada','Complexe Saint-Urbain','Tour Champlain','Pavillon Papineau','Édifice Sainte-Catherine'];
+
+const WO_NAMES = [
+  'Inspection annuelle des extincteurs','Replace AHU-2 filters','Nettoyage des conduits de ventilation','Backflow preventer annual test',
+  'Rooftop unit spring start-up','Elevator monthly inspection','Essai de la génératrice d’urgence','Grease interceptor pumping',
+  'Kitchen exhaust hood cleaning','Boiler combustion analysis','Cooling tower water treatment','Emergency lighting test',
+  'Remplacement des courroies EF-3','Fire alarm panel verification','Calibrate BMS temperature sensors','Déneigement de la toiture',
+  'Check walk-in cooler door gaskets','Inspection thermographique du panneau électrique','Replace lobby LED fixtures','Vérification des clapets coupe-feu',
+  'Descale commercial dishwasher','Water heater anode inspection','Test des détecteurs de fumée','Repair leaking faucet, washroom 3.2',
+  'Clean solar panels','Adjust VAV box airflow, Studio 42','Inspection des gicleurs','Replace ice machine water filter',
+  'Lubrification des pompes de circulation','Roof drain inspection','Repaint loading dock lines','Vérification de l’onduleur UPS-1',
+  'Update conference room firmware','Pest control quarterly visit','Remplacement des filtres de la hotte','Chiller seasonal shutdown',
+  'Inspect parking garage CO sensors','Nettoyage des vitres extérieures','Replace worn door closer, entrance B','Sweep snow'
+];
+/* Same key, same name. Offsets keep names unique within a list. */
+const woName = (key,i=0) => WO_NAMES[(hashStr(MOCK_SEED+key)+i)%WO_NAMES.length];
+const woPerson = (key) => ASSIGNEES[hashStr(MOCK_SEED+'who'+key)%ASSIGNEES.length];
+
+/* Asset catalog: [domain, type, English label, French label, tag prefix, brands, where it fits].
+   Where: k = kitchen, m = meeting room, g = any room, r = rooftop. */
+const ASSET_CATALOG = [
+  ['Kitchen equipment','Dishwasher','Commercial dishwasher','Lave-vaisselle commercial','DW',['Hobart','Champion','Jackson'],'k'],
+  ['Kitchen equipment','Range hood','Exhaust hood','Hotte de cuisine','EH',['CaptiveAire','Halton'],'k'],
+  ['Kitchen equipment','Combi oven','Combi oven','Four mixte','OV',['Rational','Garland'],'k'],
+  ['Kitchen equipment','Fryer','Deep fryer','Friteuse','FR',['Frymaster','Pitco'],'k'],
+  ['Refrigeration','Walk-in cooler','Walk-in cooler','Chambre froide','WIC',['Kolpak','Foster'],'k'],
+  ['Refrigeration','Refrigerator','Reach-in refrigerator','Réfrigérateur vertical','RF',['True','Traulsen'],'k'],
+  ['Refrigeration','Ice machine','Ice machine','Machine à glace','IM',['Hoshizaki','Manitowoc','Scotsman'],'k'],
+  ['Plumbing','Water heater','Water heater','Chauffe-eau','WH',['A.O. Smith','Rheem','Bradford White'],'kg'],
+  ['Plumbing','Grease interceptor','Grease interceptor','Séparateur de graisse','GI',['Zurn','Watts'],'k'],
+  ['Plumbing','Backflow preventer','Backflow preventer','Dispositif antirefoulement','BF',['Watts','Zurn'],'kg'],
+  ['HVAC','Air handling unit','Air handling unit','Unité de traitement d’air','AHU',['Trane','Daikin','Carrier'],'g'],
+  ['HVAC','Fan coil','Fan coil unit','Ventilo-convecteur','FC',['Daikin','Trane'],'gm'],
+  ['HVAC','Exhaust fan','Exhaust fan','Ventilateur d’extraction','EF',['Greenheck','Loren Cook'],'kgr'],
+  ['HVAC','VAV box','VAV box','Boîte VAV','VAV',['Price','Titus'],'gm'],
+  ['HVAC','Thermostat','Thermostat','Thermostat','TS',['Honeywell','Siemens'],'kgm'],
+  ['HVAC','Rooftop unit','Rooftop unit','Unité de toiture','RTU',['Trane','Carrier','Lennox'],'r'],
+  ['HVAC','Condenser','Condensing unit','Unité de condensation','CU',['Copeland','Daikin'],'r'],
+  ['Electrical','Panelboard','Electrical panel','Panneau électrique','PE',['Schneider Electric','Eaton','Siemens'],'kg'],
+  ['Electrical','Lighting','LED light fixture','Luminaire DEL','LT',['Lithonia','Philips'],'kgm'],
+  ['Electrical','Emergency lighting','Emergency light','Éclairage d’urgence','EL',['Beghelli','Lithonia'],'kgm'],
+  ['Electrical','Solar inverter','Solar inverter','Onduleur solaire','INV',['SMA','Fronius'],'r'],
+  ['Fire safety','Extinguisher','Fire extinguisher','Extincteur','EX',['Amerex','Kidde'],'kgmr'],
+  ['Fire safety','Smoke detector','Smoke detector','Détecteur de fumée','SD',['System Sensor','Edwards'],'kgm'],
+  ['Fire safety','Sprinkler valve','Sprinkler zone valve','Vanne de gicleurs','SP',['Viking','Tyco'],'g'],
+  ['Audio-visual','Display','Wall display','Écran mural','TV',['Samsung','LG','Sony'],'m'],
+  ['Audio-visual','Video conferencing','Conference system','Système de visioconférence','VC',['Poly','Logitech','Cisco'],'m'],
+  ['IT','Wireless access point','Wi-Fi access point','Point d’accès Wi-Fi','AP',['Cisco','Aruba'],'gm'],
+  ['Building automation','Controller','BMS controller','Contrôleur GTB','BMS',['Johnson Controls','Distech Controls','Siemens'],'gr'],
+  ['Roofing','Roof drain','Roof drain','Drain de toit','RD',['Zurn','Jay R. Smith'],'r']
+];
+const SOLAR = {name:'Panneaux solaires',domain:'Electrical',type:'Solar panel',brand:'Bousquet Technologies',model:'HDGH-65-SS-O-4-HTM-WO',year:2020,solar:true};
+const roomTags = (room,floor) => floor==='Rooftop' ? 'r' : /kitchen/i.test(room) ? 'k' : /meeting/i.test(room) ? 'm' : 'g';
+const assetCache = new Map();
+/* All assets in one room. Kitchens and rooftops hold more equipment than ordinary rooms. */
+function roomAssets(wing,floor,room){
+  const key=`${wing}|${floor}|${room}`; if(assetCache.has(key)) return assetCache.get(key);
+  const r=rng('assets|'+key), tag=roomTags(room,floor);
+  const pool=ASSET_CATALOG.filter(c=>c[6].includes(tag)||(tag!=='r'&&c[6].includes('g')&&r()<.5));
+  const n = tag==='k' ? 60+Math.floor(r()*90) : tag==='r' ? 25+Math.floor(r()*40) : 8+Math.floor(r()*28);
+  const fl = floor==='Rooftop' ? 'R' : floor.replace(/\D/g,'');
+  const counters={}, out=[];
+  for(let i=0;i<n;i++){
+    const [domain,type,en,fr,pre,brands]=pick(r,pool);
+    counters[pre]=(counters[pre]||0)+1;
+    const brand=pick(r,brands);
+    const model=`${brand.replace(/[^A-Z]/g,'').slice(0,3)||brand.slice(0,3).toUpperCase()}-${100+Math.floor(r()*900)}${pick(r,['','A','B','X','LT','HD'])}`;
+    const a={name:`${r()<.4?fr:en} ${pre}-${fl}${String(counters[pre]).padStart(2,'0')}`,domain,type,brand,model,year:2019+Math.floor(r()*5),openWO:r()<.15};
+    const sameDomain=out.filter(o=>o.domain===domain&&!o.parent);
+    if(sameDomain.length && r()<.18) a.parent=pick(r,sameDomain).name;
+    out.push(a);
+  }
+  if(wing==='Wing name A' && floor==='Floor 1' && /kitchen/i.test(room)) out.splice(9,0,SOLAR); // the one asset with a designed detail page
+  assetCache.set(key,out); return out;
+}
+
 const state = {
   woView:'list', dense:false, open:{}, theme:null, authed:false,
   checks:{a:[false,true,true,false,false],b:[false,true,false],c:[true,true]},
   modalChecks:[false,true,true,true,false],
   notes:[
-    {pinned:true,text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:'Firstname Last name',when:'Oct 12, 2022'},
-    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:'Firstname Last name',when:'Nov 12, 2022',imgs:2},
-    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:'Firstname Last name',when:'Nov 12, 2022'},
-    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:'Firstname Last name',when:'Nov 12, 2022'}
+    {pinned:true,text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:EXTERNAL[2].name,when:'Oct 12, 2022'},
+    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:INTERNAL[0].name,when:'Nov 12, 2022',imgs:2},
+    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:INTERNAL[3].name,when:'Nov 12, 2022'},
+    {text:'Gummies lemon drops cake soufflé sugar plum sugar plum cake.',who:EXTERNAL[7].name,when:'Nov 12, 2022'}
   ],
   assetTab:'Work orders', wing:'Wing name A', floor:'Floor 1',
   month:11, year:2022, calView:'Month', placed:{}, queue:null, woStatus:'In progress',
   assignee:'Hudson Alvarez'
 };
-state.queue = Array.from({length:13},(_,i)=>({id:'p'+i,status:'Planned',name:'Name of work order'}));
+state.queue = Array.from({length:13},(_,i)=>({id:'p'+i,status:'Planned',name:woName('dec-queue',i)}));
+state.queue0 = [...state.queue];
 
 /* ---------- shared pieces ---------- */
 const NAV = [['analytics','Analytics'],['buildings','Buildings'],['contacts','Contacts'],['mywo','Work orders assigned to me']];
@@ -512,20 +640,20 @@ function filterRail(fields){
     if (typeof x==='string' && x.startsWith('#')) return `<div class="flabel">${x.slice(1)}</div>`;
     if (x==='search') return `<label class="field">${ic('search',18)}<input id="f-search" placeholder="Search" aria-label="Search"></label>`;
     if (x.toggle) return `<label class="switch"><input type="checkbox" id="f-${x.toggle.replace(/\W/g,'')}">${x.toggle}</label>`;
-    const [label,val,sub] = Array.isArray(x)?x:[x];
+    const [label,val,sub,opts] = Array.isArray(x)?x:[x];
     const id='f-'+label.replace(/\W/g,'').toLowerCase();
-    return `<label class="field ${val?'filled':''}">${val?`<span class="fl">${label}</span>`:''}${sub?ic('sub',16):''}<select id="${id}" ${val?'':'required'} aria-label="${label}"><option value="" ${val?'':'selected'} disabled hidden>${label}</option>${val?`<option selected>${val}</option>`:''}<option>Option A</option><option>Option B</option></select>${ic('chev',18)}</label>`;
+    return `<label class="field ${val?'filled':''}">${val?`<span class="fl">${label}</span>`:''}${sub?ic('sub',16):''}<select id="${id}" ${val?'':'required'} aria-label="${label}"><option value="" ${val?'':'selected'} disabled hidden>${label}</option>${val?`<option selected>${val}</option>`:''}${(opts||['Option A','Option B']).map(o=>`<option>${o}</option>`).join('')}</select>${ic('chev',18)}</label>`;
   };
   return `<aside class="card filters"><h3>Filters</h3>${fields.map(f).join('')}
     <div class="f-actions"><button class="txt-btn" style="color:var(--red)" data-act="reset">Reset filter</button><button class="btn btn-soft btn-sm" data-act="apply">Apply filter</button></div></aside>`;
 }
 const WO_FILTERS = (assignee) => ['search','#General',['Buildings','All buildings'],'Status','Priority',assignee?['Assignee',assignee]:'Assignee','Supplier (company)','#Time',['Due date','From {date} to {date}'],'Recurrence','Work order duration','#Category','Maintenance category','Asset category'];
 
-function woCard(i=0){
+function woCard(i=0,key=''){
   const short = i%3===2;
   return `<a class="card wo" href="#wo">
     <div class="wo-top">${chip('Ready')}<span class="chip c-green">${ic('down',12)} Low</span><span class="k" role="button" aria-label="Options">${ic('dots',18)}</span></div>
-    <h4>Work Order Name</h4><div class="due">Due Date: 15/01/2023</div>
+    <h4>${woName('card|'+key,i)}</h4><div class="due">Due Date: 15/01/2023</div>
     <p>Unlike the three battery technologies explained above, lithium-ion batteries do not have a single combination of elements.</p>
     <ul><li>${ic('user',16)}Cristopher Cardenas</li><li>${ic('pin',16)}Radio-Canada</li><li>${ic('wrench',16)}Heater 300</li><li>${ic('repeat',16)}Annually</li></ul></a>`;
 }
@@ -534,20 +662,20 @@ function acc(key,title,content,{open=false,dim=false}={}){
   return `<section class="acc ${isOpen?'open':''}"><button class="acc-h ${dim?'dim':''}" data-acc="${key}" aria-expanded="${isOpen}">${title}<span class="chev">${ic('chev',20)}</span></button>${isOpen?`<div class="acc-b">${content}</div>`:''}</section>`;
 }
 function woBoard(prefix,counts){
-  const cards = (n)=>`<div class="wo-grid">${Array.from({length:n},(_,i)=>woCard(i)).join('')}</div>`;
-  return acc(prefix+'pl',`Planned (${counts[0]})`,counts[0]?cards(Math.min(counts[0],3)):'<p style="color:var(--fg-2);margin:0">No planned work orders.</p>',{dim:!counts[0]})
-   + acc(prefix+'rd',`Ready (${counts[1]})`,cards(Math.min(counts[1],6)))
-   + acc(prefix+'ip',`In progress (${counts[2]})`,cards(counts[2]),{open:true})
-   + acc(prefix+'oh',`On hold (${counts[3]})`,cards(counts[3]),{open:true})
-   + acc(prefix+'od',`Overdue (${counts[4]})`,cards(counts[4]));
+  const cards = (n,g='')=>`<div class="wo-grid">${Array.from({length:n},(_,i)=>woCard(i,prefix+g)).join('')}</div>`;
+  return acc(prefix+'pl',`Planned (${counts[0]})`,counts[0]?cards(Math.min(counts[0],3),'pl'):'<p style="color:var(--fg-2);margin:0">No planned work orders.</p>',{dim:!counts[0]})
+   + acc(prefix+'rd',`Ready (${counts[1]})`,cards(Math.min(counts[1],6),'rd'))
+   + acc(prefix+'ip',`In progress (${counts[2]})`,cards(counts[2],'ip'),{open:true})
+   + acc(prefix+'oh',`On hold (${counts[3]})`,cards(counts[3],'oh'),{open:true})
+   + acc(prefix+'od',`Overdue (${counts[4]})`,cards(counts[4],'od'));
 }
-function contactCard(){
-  return `<div class="card cc"><div class="cc-h">${avatar('CC',48)}<div><b>Cristopher Cardenas</b><span>Technician</span></div><button class="k" aria-label="Options">${ic('dots',18)}</button></div>
-  <ul><li>${ic('brief',15)}Electricity</li><li>${ic('bldg',15)}Shepard</li><li>${ic('pinO',15)}Radio-Canada</li>
-  <li>${ic('phone',15)}(514) 897-6312 <button class="copy" data-copy="(514) 897-6312" aria-label="Copy phone">${ic('copy',14)}</button></li>
-  <li>${ic('mail',15)}ccardenas@shepard.com <button class="copy" data-copy="ccardenas@shepard.com" aria-label="Copy email">${ic('copy',14)}</button></li></ul></div>`;
+function contactCard(p=CRISTOPHER){
+  return `<div class="card cc"><div class="cc-h">${avatar(p.initials,48)}<div><b>${p.name}</b><span>${p.title}</span></div><button class="k" aria-label="Options">${ic('dots',18)}</button></div>
+  <ul><li>${ic('brief',15)}${p.disc||p.title}</li><li>${ic('bldg',15)}${p.company}</li><li>${ic('pinO',15)}Radio-Canada</li>
+  <li>${ic('phone',15)}${p.phone} <button class="copy" data-copy="${p.phone}" aria-label="Copy phone">${ic('copy',14)}</button></li>
+  <li>${ic('mail',15)}${p.email} <button class="copy" data-copy="${p.email}" aria-label="Copy email">${ic('copy',14)}</button></li></ul></div>`;
 }
-const personCard = () => `<div class="card cc" style="padding:20px">${contactCard().replace('<div class="card cc">','').replace(/<button class="k"[\s\S]*?<\/button>/,'').replace(/<\/div>$/,'')}</div>`;
+const personCard = (p) => `<div class="card cc" style="padding:20px">${contactCard(p).replace('<div class="card cc">','').replace(/<button class="k"[\s\S]*?<\/button>/,'').replace(/<\/div>$/,'')}</div>`;
 
 /* ---------- charts ---------- */
 function curve(pts){ let d=`M${pts[0][0]},${pts[0][1]}`; for(let i=1;i<pts.length;i++){const [x0,y0]=pts[i-1],[x1,y1]=pts[i];const cx=(x0+x1)/2;d+=` C${cx},${y0} ${cx},${y1} ${x1},${y1}`;} return d; }
@@ -577,7 +705,7 @@ function ring(score){ const r=70,c=2*Math.PI*r; return `<svg viewBox="0 0 180 18
 
 function statsRow(vals){ const lab=['Planned','Ready','In progress','On hold','Overdue','Completed']; return `<div class="stats num">${vals.map((v,i)=>`<div class="stat"><b data-count>${v}</b>${chip(lab[i])}</div>`).join('')}</div>`; }
 function assigneeBars(n=10,clickJon=false){
-  return `<div class="bars">${Array.from({length:n},(_,i)=>{const jon=clickJon&&i===5;return `<div class="bar-row ${clickJon?'click':''}" ${clickJon?`data-go="${jon?'assignee-jon':'assignee-jon'}"`:''}><div class="bar-name"><b>${jon?'Jon Snow':'Firstname Lastname'}</b><span>Company</span></div>${bar(BARSETS[i%10])}</div>`;}).join('')}</div>`;
+  return `<div class="bars">${Array.from({length:n},(_,i)=>{const p=ASSIGNEES[i];return `<div class="bar-row ${clickJon?'click':''}" ${clickJon?`data-go="assignee-jon"`:''}><div class="bar-name"><b>${p.name}</b><span>${p.company}</span></div>${bar(BARSETS[i%10])}</div>`;}).join('')}</div>`;
 }
 
 /* ---------- screens ---------- */
@@ -610,7 +738,7 @@ S.analytics = () => header('analytics') + `<main class="page">${pageHead('Analyt
     <div class="legend" style="padding-top:8px"><span><i style="background:var(--grey-dot)"></i>Within estimated duration</span><span><i style="background:var(--green)"></i>Less than estimated duration</span><span><i style="background:var(--red)"></i>More than estimated duration</span></div></section>
   </div>
   <div class="col"><a class="btn btn-primary" href="#calendar">${ic('cal',16)} Schedule work order in calendar view</a>
-   <section class="card"><div class="card-h"><h3>Recent work orders</h3></div><div class="timeline">${RECENT.map(s=>`<a class="tl" href="#wo" style="color:inherit"><span class="dot" style="background:${DOT[s]}"></span><div><div class="meta"><span>Nov 12, 2022</span>${chip(s)}</div><b>Work order name</b><small>Assignee: First name Last name<br>Building name</small></div></a>`).join('')}</div></section>
+   <section class="card"><div class="card-h"><h3>Recent work orders</h3></div><div class="timeline">${RECENT.map((s,i)=>`<a class="tl" href="#wo" style="color:inherit"><span class="dot" style="background:${DOT[s]}"></span><div><div class="meta"><span>Nov 12, 2022</span>${chip(s)}</div><b>${woName('recent',i)}</b><small>Assignee: ${woPerson('recent'+i).name}<br>${BUILDINGS[hashStr('bldg'+i)%BUILDINGS.length]}</small></div></a>`).join('')}</div></section>
   </div></div></main>`;
 
 const perfEmpty = (extra='') => `<div class="empty-ill"><p>Building performance shows the energy performance of ${extra||'all buildings'}. It will feed into ESG reporting.</p>
@@ -627,7 +755,7 @@ S['analytics-perf'] = () => header('analytics') + `<main class="page">${pageHead
 
 S.assignees = () => header('analytics') + `<main class="page">${pageHead('Work orders by assignee',{back:'analytics'})}
  <div class="split">${filterRail(WO_FILTERS())}<section class="card" style="padding:8px 0">
-  <div class="bars">${Array.from({length:20},(_,i)=>{const jon=i===5;return `<div class="bar-row click" data-go="assignee-jon" title="Open ${jon?'Jon Snow':'this assignee'}"><div class="bar-name"><b>${jon?'Jon Snow':'Firstname Lastname'}</b><span>Company</span></div>${bar(BARSETS[i%10])}</div>`;}).join('')}</div>${legend4()}</section></div></main>`;
+  <div class="bars">${Array.from({length:20},(_,i)=>{const p=ASSIGNEES[i];return `<div class="bar-row click" data-go="assignee-jon" title="Open ${p.name}"><div class="bar-name"><b>${p.name}</b><span>${p.company}</span></div>${bar(BARSETS[i%10])}</div>`;}).join('')}</div>${legend4()}</section></div></main>`;
 
 S['assignee-jon'] = () => header('analytics') + `<main class="page">${pageHead('Work orders assigned to Jon Snow',{back:'assignees'})}<div class="split">${filterRail(WO_FILTERS('Jon Snow'))}<div>${woBoard('jon',[0,6,3,2,1])}</div></div></main>`;
 S.mywo = () => header('mywo') + `<main class="page">${pageHead('Work orders assigned to Hudson Alvarez (me)')}<div class="split">${filterRail(WO_FILTERS('Hudson Alvarez'))}<div>${woBoard('me',[0,6,3,2,1])}</div></div></main>`;
@@ -646,7 +774,7 @@ const bldgPhoto = () => `<div class="building-photo" role="img" aria-label="Aeri
 S.building = () => header('buildings') + `<main class="page">${bHead()}${bTabs('building')}
  <div class="split"><div class="col" style="gap:16px">${bldgPhoto()}
   <div class="kv" style="gap:8px;font-size:13px"><div>Description of the Maison de Radio Canada (optional info)</div><div style="display:flex;gap:6px;align-items:center">${ic('pinO',15)} Papineau / René-Levesque, Montréal, Québec</div><div style="display:flex;gap:6px;align-items:center" class="num">${ic('area',15)} 418,822 sq.ft.</div><div style="display:flex;gap:6px;align-items:center">${ic('cal',15)} Completed in 2020</div></div>
-  <div class="card mgr">${[['Building manager'],['ESG Director'],['Property manager'],['Portfolio manager']].map(([r])=>`<button data-go="contacts"><div><b>First Lastname</b><span>${r}</span></div>${ic('chev',18)}</button>`).join('')}</div></div>
+  <div class="card mgr">${[['Building manager',HUDSON],['ESG Director',INTERNAL[0]],['Property manager',INTERNAL[1]],['Portfolio manager',INTERNAL[2]]].map(([r,p])=>`<button data-go="contacts"><div><b>${p.name}</b><span>${r}</span></div>${ic('chev',18)}</button>`).join('')}</div></div>
  <div class="col"><h2 style="font-size:20px">Building performance at a glance</h2>
   <div class="two" style="grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr)"><div class="score"><h3>Overall building performance</h3><small style="margin-top:-10px">Last 30 days</small>${ring(74)}<div style="display:flex;gap:8px;align-items:center;font-size:13px"><span style="background:rgba(255,255,255,.25);border-radius:50%;width:22px;height:22px;display:grid;place-items:center">${ic('trend',14)}</span>+3% than 60 days ago</div></div>
   <section class="card"><div class="card-h"><h3 style="font-size:16px">Performance score over time</h3>${sel('2023')}</div><div style="padding:8px 16px 16px">${lineChart([{c:'var(--primary)',v:[38,38,42,52,58,58,58,62,66,68,64,52]}],{h:220})}</div></section></div>
@@ -664,7 +792,7 @@ S['building-perf'] = () => header('buildings') + `<main class="page">${bHead()}$
 const WO_RAIL = ['search','#General','Status','Priority','Assignee','Supplier (company)','#Time',['Due date','From {date} to {date}'],'Recurrence','Work order duration','#Category','Maintenance category','Asset category'];
 S['building-wo'] = () => {
   const toolbar = `<div class="toolbar"><div class="seg" role="group" aria-label="View"><button class="${state.woView==='list'?'on':''}" data-view="list" aria-label="List view">${ic('list',18)}</button><button class="${state.woView==='cards'?'on':''}" data-view="cards" aria-label="Card view">${ic('grid',18)}</button></div><a class="btn btn-primary" href="#calendar">${ic('cal',16)} Schedule work order in calendar view</a></div>`;
-  const rows = Array.from({length:10},(_,i)=>`<tr class="link" data-go="wo"><td>${i?'Work order name':'Toit des Studios'}</td><td>Annual</td><td class="num">07 Aug 2022</td><td>Low</td><td>${chip('In progress')}</td></tr>`).join('');
+  const rows = Array.from({length:10},(_,i)=>`<tr class="link" data-go="wo"><td>${i?woName('bwo-table',i):'Toit des Studios'}</td><td>Annual</td><td class="num">07 Aug 2022</td><td>Low</td><td>${chip('In progress')}</td></tr>`).join('');
   const list = `<section class="card" style="overflow:hidden"><div class="table-wrap"><table class="${state.dense?'dense':''}"><thead><tr><th>Name</th><th>Recurrence</th><th>Due date</th><th>Priority</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
    <div class="tfoot"><label class="switch"><input type="checkbox" id="dense" ${state.dense?'checked':''}>Dense</label><div class="pg num"><span>Rows per page: <b>10</b> ${ic('chev',14)}</span><span>1–10 of 11</span><span style="display:flex;gap:8px;color:var(--fg-3)">${ic('chevL',18)}<span style="color:var(--fg)">${ic('chevR',18)}</span></span></div></div></section>`;
   return header('buildings') + `<main class="page">${bHead()}${bTabs('building-wo')}<div class="split">${filterRail(WO_RAIL)}<div>${toolbar}${state.woView==='list'?list:woBoard('bwo',[8,6,4,2,1])}</div></div></main>`;
@@ -672,12 +800,17 @@ S['building-wo'] = () => {
 S['building-assets'] = () => {
   const wings=['Wing name A','Wing name B','Wing name C','Wing name D','Wing name E'], floors=['Floor 1','Floor 2','Floor 3','Floor 4','Floor 5','Floor 6','Floor 7','Floor 8','Floor 9','Floor 10','Floor 11','Rooftop'];
   const sub = `<div class="subtabs">${wings.map(w=>`<button class="tab ${state.wing===w?'on':''}" data-wing="${w}">${w}</button>`).join('')}</div><div class="subtabs deep">${floors.map(f=>`<button class="tab ${state.floor===f?'on':''}" data-floor="${f}">${f}</button>`).join('')}</div>`;
-  const a = (i) => { const solar=i===9, par=[7,15].includes(i)||i===13; return `<a class="asset" href="${solar?'#asset':'#asset'}"><span class="thumb" ${solar?'style="background:linear-gradient(135deg,#9CC4E8 0 35%,#1E3A5F 35% 100%)"':''}>${solar?'':ic('img',18)}</span><span class="info"><b>${solar?'Panneaux solaires':'Asset name'}</b><span>Domain / Type</span></span>${par?`<span class="par">${ic('tree',18)}</span><span class="tip"><b>Parent asset</b><br><span style="color:var(--fg-2)">{Parent asset name}</span></span>`:''}</a>`; };
-  const rooms=['Meeting room Mount Fuji','Meeting room Mount Royal','Room 1.1','Room 1.2','Room 2.1','Room 2.2','Room 3.3'];
+  const a = (x) => { const solar=!!x.solar; return `<a class="asset${x.parent?' has-par':''}" href="#asset"><span class="thumb" ${solar?'style="background:linear-gradient(135deg,#9CC4E8 0 35%,#1E3A5F 35% 100%)"':''}>${solar?'':ic('img',18)}</span><span class="info"><b title="${x.name}">${x.name}</b><span>${x.domain} / ${x.type}</span></span>${x.parent?`<span class="par">${ic('tree',18)}</span><span class="tip"><b>Parent asset</b><br><span style="color:var(--fg-2)">${x.parent}</span></span>`:''}</a>`; };
+  const rooms=['Kitchen','Meeting room Mount Fuji','Meeting room Mount Royal','Room 1.1','Room 1.2','Room 2.1','Room 2.2','Room 3.3'];
+  const all = rooms.flatMap(r=>roomAssets(state.wing,state.floor,r));
+  const uniq = (f,sort) => { const v=[...new Set(all.map(f))]; return sort?v.sort(sort):v.sort((x,y)=>String(x).localeCompare(String(y),'fr')); };
+  const room = (r) => { const list=roomAssets(state.wing,state.floor,r), k='k-'+r, showAll=state.open['all-'+k], max=20;
+    const shown = showAll||list.length<=max ? list : list.slice(0,max);
+    const more = list.length>max ? `<button class="show-all" data-acc="all-${k}" aria-expanded="${!!showAll}">${showAll?`Show fewer assets in ${r}`:`Show all ${list.length} assets in ${r}`}</button>` : '';
+    return acc(k,r,`<div class="asset-grid">${shown.map(a).join('')}${more}</div>`,{open:r==='Kitchen'}); };
   return header('buildings') + `<main class="page">${bHead()}${bTabs('building-assets',sub)}
-   <div class="split">${filterRail(['search','#General',{toggle:'Has open work order'},'Brand','Model','Installation date','#Category','Asset category',['Asset type','',true]])}
-   <div>${acc('k-kitchen','Kitchen',`<div class="asset-grid">${Array.from({length:20},(_,i)=>a(i)).join('')}<button class="show-all" data-act="toast" data-msg="Showing all 132 assets in Kitchen">Show all 132 assets in Kitchen</button></div>`,{open:true})}
-   ${rooms.map(r=>acc('k-'+r,r,`<div class="asset-grid">${Array.from({length:6},(_,i)=>a(i)).join('')}</div>`)).join('')}</div></div></main>`;
+   <div class="split">${filterRail(['search','#General',{toggle:'Has open work order'},['Brand','','',uniq(x=>x.brand)],['Model','','',uniq(x=>x.model)],['Installation date','','',uniq(x=>x.year,(p,q)=>q-p)],'#Category',['Asset category','','',uniq(x=>x.domain)],['Asset type','',true,uniq(x=>x.type)]])}
+   <div>${rooms.map(room).join('')}</div></div></main>`;
 };
 
 /* work order detail */
@@ -690,7 +823,7 @@ S.wo = () => {
     ${personCard()}</div>
    <section class="card checklist"><div style="padding:24px 20px"><h3 style="font-size:18px">Checklist</h3><p style="margin:4px 0 0;color:var(--fg-2)">Complete all the tasks in the checklist</p></div>
     ${grp('a','<a href="#asset" style="color:inherit">Panneaux solaires</a>',['Task 1 Occaecati est et illo quibusdam accusamus','Add SCSS and JS files if required','Stakeholder Meeting','Task 4 Occaecati est et illo quibusdam accusamus','Task 5 Take temperature of something'])}
-    ${grp('b','Asset name 2',['Task 1 Occaecati est et illo quibusdam accusamus','Completed task','Task 4 Occaecati est et illo quibusdam accusamus'])}
+    ${grp('b','Onduleur solaire INV-R01',['Task 1 Occaecati est et illo quibusdam accusamus','Completed task','Task 4 Occaecati est et illo quibusdam accusamus'])}
     ${grp('c','Other tasks',['Completed task','Completed task'],state.checks.c.every(Boolean))}</section>
    ${notesCard()}</div></main>`;
 };
@@ -716,7 +849,7 @@ S.asset = () => {
     <div style="display:flex;gap:8px"><span class="btn btn-soft btn-sm" style="background:var(--field);border-radius:16px">Category</span><span class="btn btn-soft btn-sm" style="background:var(--field);border-radius:16px">Type</span></div>
     <div class="sec-label">Identifier</div><div class="kv"><div><b>Brand:</b> Bousquet Technologies</div><div><b>Model:</b> HDGH-65-SS-O-4-HTM-WO</div><div><b>Installation date:</b> {date}</div></div>
     <div class="sec-label">Spécifications</div><div class="kv num"><div><b>Air flow:</b> 4990@12040 cfm</div><div><b>Run load amperage:</b> 1.6 A</div><div><b>Engine power:</b> 190 kW</div><div><b>Voltage phase:</b> 3 Knot</div><div><b>Voltage frequency:</b> 60 Hz</div><div><b>Voltage:</b> 575 V</div><div><b>Air flow:</b> 2355@5682 L/s</div></div>
-    <div class="sec-label">Contact</div><div class="col" style="gap:12px">${personCard()}${personCard()}</div></div>
+    <div class="sec-label">Contact</div><div class="col" style="gap:12px">${personCard(peopleAt('Shepard')[0])}${personCard(peopleAt('Toitures Mont-Royal')[0])}</div></div>
    <section class="card" style="overflow:hidden"><div class="tabs" style="background:var(--field);border-radius:0">${tabs.map(t=>`<button class="tab ${state.assetTab===t?'on':''}" data-atab="${t}" style="font-size:14px">${t}</button>`).join('')}</div><div style="padding:20px;display:grid;gap:8px">${body}</div></section>
    ${notesCard()}</div></main>`;
 };
@@ -728,18 +861,18 @@ S.calendar = () => {
   const isDec22 = y===2022&&m===11;
   const cells=[]; const total=Math.ceil((first+dim)/7)*7;
   for(let i=0;i<total;i++){const d=i-first+1; const inM=d>=1&&d<=dim; const label=inM?d:(d<1?prevDim+d:d-dim);
-    let evs=''; if(inM&&isDec22&&EVENTS[d]) evs=EVENTS[d].map(e=>typeof e==='number'?`<div class="morel">+${e} more</div>`:`<button class="ev ${e[0]}" data-ev="${d}">Name of work order</button>`).join('');
-    const key=`${y}-${m}-${d}`; if(inM&&state.placed[key]) evs+=state.placed[key].map(()=>`<button class="ev new" data-ev="${d}">Name of work order</button>`).join('');
+    let evs=''; if(inM&&isDec22&&EVENTS[d]) evs=EVENTS[d].map((e,j)=>typeof e==='number'?`<div class="morel">+${e} more</div>`:`<button class="ev ${e[0]}" data-ev="${d}" data-name="${woName('cal|'+d,j)}">${woName('cal|'+d,j)}</button>`).join('');
+    const key=`${y}-${m}-${d}`; if(inM&&state.placed[key]) evs+=state.placed[key].map(id=>{const n=(state.queue0.find(q=>q.id===id)||{name:woName('placed|'+key)}).name;return `<button class="ev new" data-ev="${d}" data-name="${n}">${n}</button>`;}).join('');
     const off = isDec22&&[25,26].includes(d);
     cells.push(`<div class="day ${inM?'':'out'} ${isDec22&&d===5?'today':''} ${off?'off':''}" ${inM&&!off?`data-day="${key}"`:''}><div class="dn"><span>${label}</span></div>${evs}</div>`);}
   const prev=[['Overdue'],['Overdue'],['On hold'],['On hold'],['On hold']];
-  const qi=(s,id)=>`<div class="qi" draggable="true" ${id?`data-q="${id}"`:''}>${chip(s)}<b>8h</b><span>Name of work order</span></div>`;
+  const qi=(s,id,name)=>`<div class="qi" draggable="true" ${id?`data-q="${id}"`:''}>${chip(s)}<b>8h</b><span>${name}</span></div>`;
   return header('analytics') + `<main class="page">${pageHead('Schedule work order in calendar',{back:'building-wo'})}
   <div class="cal-layout"><div class="col" style="gap:16px">
    <label class="field filled"><span class="fl">Buildings</span><select id="cal-bldg" aria-label="Building"><option>Maison de Radio-Canada</option><option>Toit des Studios</option></select>${ic('chev',18)}</label>
-   ${acc('cprev','Work orders from previous months',`<div class="queue">${prev.map(([s])=>qi(s)).join('')}</div>`,{open:true})}
-   ${acc('cdec','Work orders planned for December 2022',`<div class="queue">${state.queue.length?state.queue.map(q=>qi(q.status,q.id)).join(''):'<p style="color:var(--fg-2);margin:0">All planned work orders are on the calendar.</p>'}</div><p style="font-size:12px;color:var(--fg-2);margin:12px 0 0">Drag a work order onto a day to schedule it.</p>`,{open:true})}
-   ${acc('cjan','Work orders planned for January 2023',`<div class="queue">${qi('Planned')}${qi('Planned')}</div>`)}
+   ${acc('cprev','Work orders from previous months',`<div class="queue">${prev.map(([s],i)=>qi(s,'',woName('prev',i))).join('')}</div>`,{open:true})}
+   ${acc('cdec','Work orders planned for December 2022',`<div class="queue">${state.queue.length?state.queue.map(q=>qi(q.status,q.id,q.name)).join(''):'<p style="color:var(--fg-2);margin:0">All planned work orders are on the calendar.</p>'}</div><p style="font-size:12px;color:var(--fg-2);margin:12px 0 0">Drag a work order onto a day to schedule it.</p>`,{open:true})}
+   ${acc('cjan','Work orders planned for January 2023',`<div class="queue">${qi('Planned','',woName('jan',0))}${qi('Planned','',woName('jan',1))}</div>`)}
   </div>
   <section class="card" style="overflow:hidden"><div class="cal-h"><div class="seg2" role="group" aria-label="Calendar range">${['Month','Week','Day'].map(v=>`<button class="${state.calView===v?'on':''}" data-calv="${v}">${v}</button>`).join('')}</div>
     <div style="display:flex;align-items:center;gap:8px"><button class="icon-btn" data-mon="-1" aria-label="Previous month">${ic('chevL',20)}</button><h3>${['January','February','March','April','May','June','July','August','September','October','November','December'][m]} ${y}</h3><button class="icon-btn" data-mon="1" aria-label="Next month">${ic('chevR',20)}</button></div>
@@ -750,9 +883,9 @@ S.calendar = () => {
 /* contacts */
 S.contacts = () => header('contacts') + `<main class="page">${pageHead('Contacts')}
  <div class="split">${filterRail(['search','#General',['Buildings','All buildings'],'Type','Supplier (company)','Title','Discipline'])}
- <div class="col" style="gap:32px"><div><h2 style="font-size:22px;margin-bottom:16px">Internal</h2><div class="cc-grid">${contactCard().repeat(3)}</div></div>
+ <div class="col" style="gap:32px"><div><h2 style="font-size:22px;margin-bottom:16px">Internal</h2><div class="cc-grid">${INTERNAL.slice(0,3).map(p=>contactCard(p)).join('')}</div></div>
  <div class="col" style="gap:20px"><h2 style="font-size:22px">External</h2>
-  ${[['Company name A',3],['Company name B',2],['Company name C',5]].map(([c,n])=>`<div><h3 style="font-size:16px;color:var(--fg-2);margin-bottom:12px">${c}</h3><div class="cc-grid">${contactCard().repeat(n)}</div></div>`).join('')}</div></div></div></main>`;
+  ${[['Shepard',3],['Mécanique Laurentide',2],['Plomberie Saint-Laurent',5]].map(([c,n])=>`<div><h3 style="font-size:16px;color:var(--fg-2);margin-bottom:12px">${c}</h3><div class="cc-grid">${peopleAt(c).slice(0,n).map(p=>contactCard(p)).join('')}</div></div>`).join('')}</div></div></div></main>`;
 
 /* forms */
 const ff = (label,val='',{select,sub,ph,area,opts}={}) => { const id='i-'+Math.random().toString(36).slice(2,8);
@@ -944,7 +1077,7 @@ document.addEventListener('mouseover',(e)=>{
   const ev=e.target.closest('.ev'); if(!ev){ if(tip){tip.remove();tip=null;} return; }
   if(tip) return; const r=ev.getBoundingClientRect();
   tip=document.createElement('div'); tip.className='ev-tip';
-  tip.innerHTML=`${chip('Ready')}<b>Work order name</b>Little description of the work order (optional)<br>Building: Maison de Radio-Canada<br>Recurrence: Annually<br>Assignee: Cristopher Cardenas<br>Estimated duration: 1 day<br>Due date: 12/${String(ev.dataset.ev).padStart(2,'0')}/2022<br>Priority: High`;
+  tip.innerHTML=`${chip('Ready')}<b>${ev.dataset.name||''}</b>Little description of the work order (optional)<br>Building: Maison de Radio-Canada<br>Recurrence: Annually<br>Assignee: ${woPerson('cal'+ev.dataset.name).name}<br>Estimated duration: 1 day<br>Due date: 12/${String(ev.dataset.ev).padStart(2,'0')}/2022<br>Priority: High`;
   document.body.appendChild(tip);
   const left = r.right+10+280>window.innerWidth ? r.left-290 : r.right+10;
   tip.style.left=Math.max(8,left)+'px'; tip.style.top=Math.min(r.top,window.innerHeight-260)+'px';
