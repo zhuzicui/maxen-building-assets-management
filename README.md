@@ -1,41 +1,62 @@
-# Maxen — building assets management prototype
+# Maxen: building assets and maintenance (portfolio demo)
 
-A clickable, coded version of the Maxen prototype. It is a single self-contained `index.html` (plain HTML, CSS and JavaScript, no build step or dependencies beyond the Public Sans font from Google Fonts).
+A clickable demo of a building maintenance app for a portfolio of seven buildings. It covers work orders, preventive maintenance schedules, asset records and digital checklists. It started as a single-file HTML prototype of the Maxen V4 design (kept in [`legacy/prototype.html`](legacy/prototype.html)) and is now a typed React app with a shared data store.
+
+All names, companies, buildings and work orders are fictional. There is no backend: your changes are saved in your browser only (use **Account > Reset demo data** to start over).
+
+## What works
+
+| Area | What you can do |
+| --- | --- |
+| Work orders | Create (with templates and a checklist builder), assign and reassign, change status and due date, add and pin notes. A change on one screen shows up on every other screen and survives a reload. |
+| Boards and lists | Status boards, a paginated table and cards, all driven by working filters (search, building, status, priority, assignee, supplier, due dates, recurrence, duration, category). |
+| Calendar | Month, week and day views. Drag a work order onto a day, or select it and click a day. Scheduling a planned work order marks it ready. |
+| Checklists | Tick tasks, record readings with units, and watch progress follow the work. Completing a work order completes its checklist. |
+| Assets | Every asset has its own page: location, identifiers, warranty status, specifications, linked work orders, documents, checklists and sub-assets. Browse by wing, floor and room, filter by brand, model, year, category, type and open work orders, and create new assets. |
+| Analytics | Work order counts, top assignees, categories, priority split, completion rate and time against estimate, all computed from the data, for the portfolio or one building. |
+| Roles | The logo menu switches between portfolio manager, single building and technician views. |
+| Phones | Layouts reflow down to 390 px, and filters collapse behind a button. |
+
+Not built yet (see the gap review in the project thread): energy and BMS data, AI suggestions, usage-meter and condition-triggered maintenance, QR tags, spare parts, safety permits and signed inspection reports. The **Building performance** tabs are placeholders for that work.
 
 ## Run it
 
-Open `index.html` in a browser, or serve the folder:
-
 ```sh
-npx serve .
-# or
-python3 -m http.server 8000
+npm install
+npm run dev        # http://localhost:5173
+npm test           # unit tests (vitest)
+npm run build      # type check and production build into dist/
 ```
 
-Sign in with any password (the email is prefilled with `design@email.com`).
+Optional click-through test of the main flows (needs Playwright with Chromium):
 
-## Screens
+```sh
+npm run build && npx vite preview --port 4173 &
+npm run e2e
+```
 
-| Route | Screen |
-| --- | --- |
-| `#login` | Sign in |
-| `#analytics`, `#analytics-perf` | Portfolio analytics (maintenance / performance tabs) |
-| `#assignees`, `#assignee-jon` | Work orders by assignee, and one assignee's work orders |
-| `#mywo`, `#tech` | Work orders assigned to me (manager / technician views) |
-| `#building`, `#building-analytics`, `#building-perf`, `#building-wo`, `#building-assets` | Maison de Radio-Canada: at a glance, analytics, work orders (list and cards), assets |
-| `#wo` | Work order detail with checklist modal and notes |
-| `#asset` | Asset detail (Panneaux solaires) with tabs and notes |
-| `#calendar` | Schedule work orders in a calendar, with drag and drop |
-| `#contacts` | Internal and external contacts |
-| `#new-asset`, `#new-wo` | Create asset / create work order forms |
-| `#profile` | Profile and communication preferences |
+## How it is put together
 
-The logo menu switches between the portfolio manager, single-building and technician views, as in the Figma flow.
+```
+src/
+  data/       seed data: people, buildings, asset catalog, work order templates, and the generator that builds them
+  store/      zustand store with a localStorage overlay, plus tests
+  lib/        pure helpers: dates, seeded random numbers, filters, analytics
+  components/ shared UI: header, filter panel, charts, form fields, menus
+  screens/    one file per screen or group of screens
+legacy/       the original single-file prototype
+scripts/      click-through smoke test
+```
 
-## Notes
+- **One source of truth.** The base data (about 4,300 assets and 450 work orders) is generated from a seed on every load, so it is identical each time and takes no storage. Everything you change is kept as a small overlay (`woPatches`, `newWOs`, `assetPatches`, `newAssets`) in localStorage. Selectors merge the two, so every screen reads the same records.
+- **Realistic dates.** Due dates are generated relative to today, so the calendar and the overdue list always make sense.
+- **Each building is different.** Wings, floor counts and rooms are specific to each building.
+- **Routing** uses hash URLs (`#/building/assets`), so the build works on any static host.
 
-- Charts animate in once per screen visit as they scroll into view, and stay static when the system "reduce motion" setting is on.
-- Light and dark themes follow the system setting; the contrast button in the header toggles them.
-- Photos, avatars and the logo are vector stand-ins for the Figma image assets.
-- The New work order and Profile screens were built from the Figma layer structure rather than screenshots, so they are approximations.
-- Names, companies, work order names and building assets are generated by the mock-data block at the top of the script (search for `mock data`). Generation is seeded, so values stay the same across reloads; change `MOCK_SEED` to reshuffle. People and companies are fictional, and the named people from Figma (Hudson Alvarez, Cristopher Cardenas, Jon Snow, Shepard) are kept.
+## Deploy
+
+The workflow in `.github/workflows/ci.yml` type-checks, tests and builds on every pull request, and publishes `dist/` to GitHub Pages after a merge to `main`. Turn it on once under **Settings > Pages > Source: GitHub Actions**.
+
+## Credits
+
+Design: Maxen V4 Figma file. Photos, avatars and the logo are vector stand-ins or fictional content. The Maison de Radio-Canada photo is a placeholder image used for the demo.
