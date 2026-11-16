@@ -586,7 +586,10 @@ const WO_SPEC = {
 };
 const woSlug = (n) => n.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const WO_BY_SLUG = Object.fromEntries(Object.keys(WO_SPEC).map(n=>[woSlug(n),n]));
-const woHref = (n) => '#wo/'+woSlug(n);
+const stSlug = (st) => st.toLowerCase().replace(/ /g,'-');
+const STATUS_BY_SLUG = {planned:'Planned',ready:'Ready','in-progress':'In progress','on-hold':'On hold',overdue:'Overdue',completed:'Completed'};
+/* The status rides along in the link, so the detail page opens with the status shown where it was clicked. */
+const woHref = (n,st) => '#wo/'+woSlug(n)+(st?'/'+stSlug(st):'');
 const WO_FR = new Set(['Toit des Studios','Inspection annuelle des extincteurs','Nettoyage des conduits de ventilation','Essai de la génératrice d’urgence','Remplacement des courroies EF-3','Déneigement de la toiture','Inspection thermographique du panneau électrique','Vérification des clapets coupe-feu','Test des détecteurs de fumée','Inspection des gicleurs','Lubrification des pompes de circulation','Vérification de l’onduleur UPS-1','Remplacement des filtres de la hotte','Nettoyage des vitres extérieures']);
 const isFr = (n) => WO_FR.has(n);
 const NOTES_EN = ['Access is through the service corridor. Ask security for the key at the desk.','Parts are on site, in the mechanical room cage.','Studio recording until 2 pm, please avoid noisy work before then.','Please send photos before and after, the property manager wants them for the report.','Last visit found nothing abnormal. Same procedure as last year.','{asset}: minor wear noticed last time, check it again.','Quote for the follow-up repairs sent to the property manager.'];
@@ -606,9 +609,17 @@ function woDetail(name){
   const pool = shuffle(r,fr?NOTES_FR:NOTES_EN).slice(0,3+Math.floor(r()*2));
   const authors = [who, HUDSON, ...shuffle(r,INTERNAL.slice(0,3))];
   const notes = pool.map((t,i)=>({text:t.replace('{asset}',assets[0]),who:authors[i%authors.length].name,when:NOTE_DATES[NOTE_DATES.length-1-i-(day%2)],pinned:i===0,imgs:i===1&&r()<.6?2:0}));
-  const d = {name,cat,type,rec,dur,prio,desc,who,groups,notes,due:`Dec ${day}, 2022`,status:'In progress',
-    checks:groups.map((g,gi)=>g.tasks.map((_,ti)=>gi===groups.length-1 ? true : r()<.35))};
+  const d = {name,cat,type,rec,dur,prio,desc,who,groups,notes,due:`Dec ${day}, 2022`};
+  setWoStatus(d,'In progress');
   woCache.set(name,d); return d;
+}
+/* Checklist progress follows the status: nothing ticked before work starts, everything ticked once completed. */
+function setWoStatus(d,status){
+  if(d.status===status) return;
+  d.status=status;
+  if(d.checksTouched) return;
+  const r=rng('checks|'+d.name), last=d.groups.length-1;
+  d.checks=d.groups.map((g,gi)=>g.tasks.map((_,ti)=> status==='Completed' ? true : (status==='Planned'||status==='Ready') ? false : gi===last ? false : (ti===0 || r()<.4)));
 }
 
 /* Asset catalog: [domain, type, English label, French label, tag prefix, brands, where it fits].
@@ -722,10 +733,10 @@ function filterRail(fields){
 }
 const WO_FILTERS = (assignee) => ['search','#General',['Buildings','All buildings'],'Status','Priority',assignee?['Assignee',assignee]:'Assignee','Supplier (company)','#Time',['Due date','From {date} to {date}'],'Recurrence','Work order duration','#Category','Maintenance category','Asset category'];
 
-function woCard(i=0,key=''){
+function woCard(i=0,key='',st='Ready'){
   const short = i%3===2, n=woName('card|'+key,i);
-  return `<a class="card wo" href="${woHref(n)}">
-    <div class="wo-top">${chip('Ready')}<span class="chip c-green">${ic('down',12)} Low</span><span class="k" role="button" aria-label="Options">${ic('dots',18)}</span></div>
+  return `<a class="card wo" href="${woHref(n,st)}">
+    <div class="wo-top">${chip(st)}<span class="chip c-green">${ic('down',12)} Low</span><span class="k" role="button" aria-label="Options">${ic('dots',18)}</span></div>
     <h4>${n}</h4><div class="due">Due Date: 15/01/2023</div>
     <p>Unlike the three battery technologies explained above, lithium-ion batteries do not have a single combination of elements.</p>
     <ul><li>${ic('user',16)}Cristopher Cardenas</li><li>${ic('pin',16)}Radio-Canada</li><li>${ic('wrench',16)}Heater 300</li><li>${ic('repeat',16)}Annually</li></ul></a>`;
@@ -735,7 +746,8 @@ function acc(key,title,content,{open=false,dim=false}={}){
   return `<section class="acc ${isOpen?'open':''}"><button class="acc-h ${dim?'dim':''}" data-acc="${key}" aria-expanded="${isOpen}">${title}<span class="chev">${ic('chev',20)}</span></button>${isOpen?`<div class="acc-b">${content}</div>`:''}</section>`;
 }
 function woBoard(prefix,counts){
-  const cards = (n,g='')=>`<div class="wo-grid">${Array.from({length:n},(_,i)=>woCard(i,prefix+g)).join('')}</div>`;
+  const GS={pl:'Planned',rd:'Ready',ip:'In progress',oh:'On hold',od:'Overdue'};
+  const cards = (n,g='')=>`<div class="wo-grid">${Array.from({length:n},(_,i)=>woCard(i,prefix+g,GS[g])).join('')}</div>`;
   return acc(prefix+'pl',`Planned (${counts[0]})`,counts[0]?cards(Math.min(counts[0],3),'pl'):'<p style="color:var(--fg-2);margin:0">No planned work orders.</p>',{dim:!counts[0]})
    + acc(prefix+'rd',`Ready (${counts[1]})`,cards(Math.min(counts[1],6),'rd'))
    + acc(prefix+'ip',`In progress (${counts[2]})`,cards(counts[2],'ip'),{open:true})
@@ -811,7 +823,7 @@ S.analytics = () => header('analytics') + `<main class="page">${pageHead('Analyt
     <div class="legend" style="padding-top:8px"><span><i style="background:var(--grey-dot)"></i>Within estimated duration</span><span><i style="background:var(--green)"></i>Less than estimated duration</span><span><i style="background:var(--red)"></i>More than estimated duration</span></div></section>
   </div>
   <div class="col"><a class="btn btn-primary" href="#calendar">${ic('cal',16)} Schedule work order in calendar view</a>
-   <section class="card"><div class="card-h"><h3>Recent work orders</h3></div><div class="timeline">${RECENT.map((s,i)=>`<a class="tl" href="${woHref(woName('recent',i))}" style="color:inherit"><span class="dot" style="background:${DOT[s]}"></span><div><div class="meta"><span>Nov 12, 2022</span>${chip(s)}</div><b>${woName('recent',i)}</b><small>Assignee: ${woPerson('recent'+i).name}<br>${BUILDINGS[hashStr('bldg'+i)%BUILDINGS.length]}</small></div></a>`).join('')}</div></section>
+   <section class="card"><div class="card-h"><h3>Recent work orders</h3></div><div class="timeline">${RECENT.map((s,i)=>`<a class="tl" href="${woHref(woName('recent',i),s)}" style="color:inherit"><span class="dot" style="background:${DOT[s]}"></span><div><div class="meta"><span>Nov 12, 2022</span>${chip(s)}</div><b>${woName('recent',i)}</b><small>Assignee: ${woPerson('recent'+i).name}<br>${BUILDINGS[hashStr('bldg'+i)%BUILDINGS.length]}</small></div></a>`).join('')}</div></section>
   </div></div></main>`;
 
 const perfEmpty = (extra='') => `<div class="empty-ill"><p>Building performance shows the energy performance of ${extra||'all buildings'}. It will feed into ESG reporting.</p>
@@ -865,7 +877,7 @@ S['building-perf'] = () => header('buildings') + `<main class="page">${bHead()}$
 const WO_RAIL = ['search','#General','Status','Priority','Assignee','Supplier (company)','#Time',['Due date','From {date} to {date}'],'Recurrence','Work order duration','#Category','Maintenance category','Asset category'];
 S['building-wo'] = () => {
   const toolbar = `<div class="toolbar"><div class="seg" role="group" aria-label="View"><button class="${state.woView==='list'?'on':''}" data-view="list" aria-label="List view">${ic('list',18)}</button><button class="${state.woView==='cards'?'on':''}" data-view="cards" aria-label="Card view">${ic('grid',18)}</button></div><a class="btn btn-primary" href="#calendar">${ic('cal',16)} Schedule work order in calendar view</a></div>`;
-  const rows = Array.from({length:10},(_,i)=>`<tr class="link" data-go="${woHref(i?woName('bwo-table',i):'Toit des Studios').slice(1)}"><td>${i?woName('bwo-table',i):'Toit des Studios'}</td><td>Annual</td><td class="num">07 Aug 2022</td><td>Low</td><td>${chip('In progress')}</td></tr>`).join('');
+  const rows = Array.from({length:10},(_,i)=>`<tr class="link" data-go="${woHref(i?woName('bwo-table',i):'Toit des Studios','In progress').slice(1)}"><td>${i?woName('bwo-table',i):'Toit des Studios'}</td><td>Annual</td><td class="num">07 Aug 2022</td><td>Low</td><td>${chip('In progress')}</td></tr>`).join('');
   const list = `<section class="card" style="overflow:hidden"><div class="table-wrap"><table class="${state.dense?'dense':''}"><thead><tr><th>Name</th><th>Recurrence</th><th>Due date</th><th>Priority</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
    <div class="tfoot"><label class="switch"><input type="checkbox" id="dense" ${state.dense?'checked':''}>Dense</label><div class="pg num"><span>Rows per page: <b>10</b> ${ic('chev',14)}</span><span>1–10 of 11</span><span style="display:flex;gap:8px;color:var(--fg-3)">${ic('chevL',18)}<span style="color:var(--fg)">${ic('chevR',18)}</span></span></div></div></section>`;
   return header('buildings') + `<main class="page">${bHead()}${bTabs('building-wo')}<div class="split">${filterRail(WO_RAIL)}<div>${toolbar}${state.woView==='list'?list:woBoard('bwo',[8,6,4,2,1])}</div></div></main>`;
@@ -914,7 +926,7 @@ S.asset = () => {
   const items=[['In progress','Toit des Studios','Annual • 2022'],['Completed','Sweep snow','Every 2 weeks • 2022'],['Completed','Adjust inclination','Bi-annual • 2022'],['Completed','Adjust inclination','Bi-annual • 2022']];
   const tabs=['Work orders','Documents (5)','Checklists','Sub-assets'];
   let body='';
-  if(state.assetTab==='Work orders') body=items.map(([s,t,m],i)=>`<a class="wo-item" href="${woHref(t)}" style="color:inherit"><span>${chip(s)}</span><b style="font-weight:500">${t}</b><span>Description Cupcake ipsum dolor sit amet sweet roll brownie powder.</span><small>${m}</small></a>`).join('')+`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><a class="btn btn-primary" href="#new-wo">${ic('plus',18)} New work order</a><a href="#building-wo" style="font-weight:700">View all work orders</a></div>`;
+  if(state.assetTab==='Work orders') body=items.map(([s,t,m],i)=>`<a class="wo-item" href="${woHref(t,s)}" style="color:inherit"><span>${chip(s)}</span><b style="font-weight:500">${t}</b><span>Description Cupcake ipsum dolor sit amet sweet roll brownie powder.</span><small>${m}</small></a>`).join('')+`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><a class="btn btn-primary" href="#new-wo">${ic('plus',18)} New work order</a><a href="#building-wo" style="font-weight:700">View all work orders</a></div>`;
   else if(state.assetTab==='Documents (5)') body=['Installation manual.pdf','Warranty certificate.pdf','Wiring diagram.pdf','Inspection report 2022.pdf','Supplier invoice.pdf'].map(d=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--line)"><span>${d}</span><small style="color:var(--fg-2)">PDF</small></div>`).join('');
   else if(state.assetTab==='Checklists') body=`<b>Annual</b>${['Clean panel surface','Check inverter output','Inspect mounting brackets','Take temperature of panels'].map(t=>`<label class="task"><input type="checkbox"><span>${t}</span></label>`).join('')}`;
   else body=`<div class="asset-grid" style="grid-template-columns:1fr">${['Inverter A','Inverter B','Battery bank'].map(n=>`<a class="asset" href="#asset"><span class="thumb">${ic('img',18)}</span><span class="info"><b>${n}</b><span>Electrical / Energy storage</span></span></a>`).join('')}</div>`;
@@ -931,14 +943,15 @@ S.asset = () => {
 };
 
 /* calendar */
+const EV_STATUS = {red:'Overdue',amber:'On hold',ghost:'Planned','':'Ready'};
 const EVENTS = {3:[['red'],['amber'],['ghost'],12],4:[['ghost'],['ghost'],['ghost'],['ghost']],5:[['ghost'],['ghost'],['ghost'],4],6:[['amber'],['ghost'],['ghost']],7:[['ghost'],['ghost']],10:[['ghost'],['ghost']],11:[[''],['ghost'],['ghost']],12:[[''],[''],[''],7],13:[[''],[''],[''],['']],17:[[''],['']],18:[[''],[''],[''],4],19:[['']],20:[[''],['']],21:[['']]};
 S.calendar = () => {
   const y=state.year,m=state.month, first=new Date(y,m,1).getDay(), dim=new Date(y,m+1,0).getDate(), prevDim=new Date(y,m,0).getDate();
   const isDec22 = y===2022&&m===11;
   const cells=[]; const total=Math.ceil((first+dim)/7)*7;
   for(let i=0;i<total;i++){const d=i-first+1; const inM=d>=1&&d<=dim; const label=inM?d:(d<1?prevDim+d:d-dim);
-    let evs=''; if(inM&&isDec22&&EVENTS[d]) evs=EVENTS[d].map((e,j)=>typeof e==='number'?`<div class="morel">+${e} more</div>`:`<button class="ev ${e[0]}" data-ev="${d}" data-name="${woName('cal|'+d,j)}">${woName('cal|'+d,j)}</button>`).join('');
-    const key=`${y}-${m}-${d}`; if(inM&&state.placed[key]) evs+=state.placed[key].map(id=>{const n=(state.queue0.find(q=>q.id===id)||{name:woName('placed|'+key)}).name;return `<button class="ev new" data-ev="${d}" data-name="${n}">${n}</button>`;}).join('');
+    let evs=''; if(inM&&isDec22&&EVENTS[d]) evs=EVENTS[d].map((e,j)=>typeof e==='number'?`<div class="morel">+${e} more</div>`:`<button class="ev ${e[0]}" data-ev="${d}" data-st="${EV_STATUS[e[0]]}" data-name="${woName('cal|'+d,j)}">${woName('cal|'+d,j)}</button>`).join('');
+    const key=`${y}-${m}-${d}`; if(inM&&state.placed[key]) evs+=state.placed[key].map(id=>{const n=(state.queue0.find(q=>q.id===id)||{name:woName('placed|'+key)}).name;return `<button class="ev new" data-ev="${d}" data-st="Planned" data-name="${n}">${n}</button>`;}).join('');
     const off = isDec22&&[25,26].includes(d);
     cells.push(`<div class="day ${inM?'':'out'} ${isDec22&&d===5?'today':''} ${off?'off':''}" ${inM&&!off?`data-day="${key}"`:''}><div class="dn"><span>${label}</span></div>${evs}</div>`);}
   const prev=[['Overdue'],['Overdue'],['On hold'],['On hold'],['On hold']];
@@ -1007,9 +1020,9 @@ S.profile = () => header('') + `<main class="page"><div class="two" style="grid-
 /* ---------- router ---------- */
 const ROUTES = Object.keys(S);
 function render(){
-  let [r,arg] = (location.hash.slice(1) || 'login').split('/');
+  let [r,arg,stArg] = (location.hash.slice(1) || 'login').split('/');
   if(!ROUTES.includes(r)) r='login';
-  if(r==='wo') state.woName = WO_BY_SLUG[arg] || 'Toit des Studios';
+  if(r==='wo'){ state.woName = WO_BY_SLUG[arg] || 'Toit des Studios'; const st=STATUS_BY_SLUG[stArg]; const d=woDetail(state.woName); if(st && !d.statusTouched) setWoStatus(d,st); }
   if(r!=='login' && !state.authed){ state.authed=true; }
   closePop();
   document.getElementById('app').innerHTML = S[r]();
@@ -1070,7 +1083,7 @@ function armCharts(route){
   });
 }
 const go = (r) => { if(location.hash==='#'+r) render(); else location.hash=r; };
-const goWo = (name) => go(woHref(name).slice(1));
+const goWo = (name,st) => go(woHref(name,st).slice(1));
 
 /* ---------- popovers ---------- */
 const layer = document.getElementById('layer');
@@ -1114,7 +1127,7 @@ document.addEventListener('click',(e)=>{
   if(d.atab){ state.assetTab=d.atab; render(); return; }
   if(d.calv){ state.calView=d.calv; if(d.calv!=='Month') toast(`${d.calv} view isn't designed yet, showing Month`); state.calView='Month'; render(); return; }
   if(d.mon){ state.month+=+d.mon; if(state.month<0){state.month=11;state.year--;} if(state.month>11){state.month=0;state.year++;} render(); return; }
-  if(d.status){ woDetail(state.woName).status=d.status; closePop(); render(); toast(`Status changed to ${d.status}`); return; }
+  if(d.status){ const wd=woDetail(state.woName); setWoStatus(wd,d.status); wd.statusTouched=true; closePop(); render(); toast(`Status changed to ${d.status}`); return; }
   if(d.pin!==undefined){ const n=state.notes.splice(+d.pin,1)[0]; state.notes.forEach(x=>x.pinned=false); n.pinned=true; state.notes.unshift(n); render(); toast('Note pinned'); return; }
   if(d.copy){ e.preventDefault(); const v=d.copy; (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>toast('Copied '+v)).catch(()=>toast(v)); return; }
   if(d.sec){ document.querySelectorAll('.side-nav a').forEach(a=>a.classList.toggle('on',a===t)); e.preventDefault(); document.getElementById(d.sec).scrollIntoView({behavior:'smooth'}); return; }
@@ -1128,7 +1141,7 @@ document.addEventListener('click',(e)=>{
     case 'apply': toast('Filters applied'); break;
     case 'toast': e.preventDefault(); toast(d.msg); break;
     case 'checklist': checklistModal(+d.grp||0); break;
-    case 'saveprog': state.checks[state.modalGrp]=[...state.modalChecks]; closePop(); render(); toast('Progress saved'); break;
+    case 'saveprog': { const wd=woDetail(state.woName); wd.checks[state.modalGrp]=[...state.modalChecks]; wd.checksTouched=true; } closePop(); render(); toast('Progress saved'); break;
     case 'post': { const v=document.getElementById('note-text').value.trim(); if(!v){toast('Write a note first');return;} state.notes.splice(state.notes.filter(n=>n.pinned).length,0,{text:v,who:'Hudson Alvarez',when:'Just now'}); render(); toast('Note posted'); break; }
     case 'today': state.month=11; state.year=2022; render(); break;
     case 'cancel': history.length>1?history.back():go('building'); break;
@@ -1137,7 +1150,7 @@ document.addEventListener('click',(e)=>{
 });
 document.addEventListener('change',(e)=>{
   const d=e.target.dataset;
-  if(d.check){ const [k,i]=d.check.split(':'); state.checks[+k][+i]=e.target.checked; render(); return; }
+  if(d.check){ const [k,i]=d.check.split(':'); state.checks[+k][+i]=e.target.checked; woDetail(state.woName).checksTouched=true; render(); return; }
   if(d.mcheck!==undefined){ state.modalChecks[+d.mcheck]=e.target.checked; return; }
   if(e.target.id==='dense'){ state.dense=e.target.checked; render(); }
 });
@@ -1157,12 +1170,12 @@ document.addEventListener('mouseover',(e)=>{
   if(tip) return; const r=ev.getBoundingClientRect();
   tip=document.createElement('div'); tip.className='ev-tip';
   const wd=woDetail(ev.dataset.name);
-  tip.innerHTML=`${chip('Ready')}<b>${wd.name}</b>${wd.desc}<br>Building: Maison de Radio-Canada<br>Recurrence: ${wd.rec}<br>Assignee: ${wd.who.name}<br>Estimated duration: ${wd.dur}<br>Due date: 12/${String(ev.dataset.ev).padStart(2,'0')}/2022<br>Priority: ${wd.prio}`;
+  tip.innerHTML=`${chip(ev.dataset.st||'Ready')}<b>${wd.name}</b>${wd.desc}<br>Building: Maison de Radio-Canada<br>Recurrence: ${wd.rec}<br>Assignee: ${wd.who.name}<br>Estimated duration: ${wd.dur}<br>Due date: 12/${String(ev.dataset.ev).padStart(2,'0')}/2022<br>Priority: ${wd.prio}`;
   document.body.appendChild(tip);
   const left = r.right+10+280>window.innerWidth ? r.left-290 : r.right+10;
   tip.style.left=Math.max(8,left)+'px'; tip.style.top=Math.min(r.top,window.innerHeight-260)+'px';
 });
-document.addEventListener('click',(e)=>{ const ev=e.target.closest('.ev'); if(ev){ if(tip){tip.remove();tip=null;} goWo(ev.dataset.name); } });
+document.addEventListener('click',(e)=>{ const ev=e.target.closest('.ev'); if(ev){ if(tip){tip.remove();tip=null;} goWo(ev.dataset.name,ev.dataset.st); } });
 function bindDnD(){
   document.querySelectorAll('.qi[draggable]').forEach(el=>{ el.addEventListener('dragstart',ev=>{ ev.dataTransfer.setData('text/plain',el.dataset.q||''); ev.dataTransfer.effectAllowed='move'; }); });
   document.querySelectorAll('.day[data-day]').forEach(day=>{
